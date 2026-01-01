@@ -199,7 +199,8 @@
             const container = document.getElementById('dashboard');
             container.innerHTML = '';
             
-            const todayStr = getTodayString(); 
+            // KEY FIX: Use Local Day String
+            const todayStr = getLocalDayStr(); 
             const midnightTimestamp = new Date();
             midnightTimestamp.setHours(0,0,0,0); 
 
@@ -209,6 +210,7 @@
                 const isMe = key === currentUser;
                 
                 // CALC 1: TOTAL TODAY (Resets at Midnight)
+                // Now guarantees matching key between Save and Read
                 const savedToday = history[todayStr] || 0;
                 let activeSessionToday = 0;
                 
@@ -324,10 +326,9 @@
                         const now = Date.now();
                         const start = data.startTime;
                         
-                        const startObj = new Date(start);
-                        const endObj = new Date(now);
-                        const startDayStr = startObj.toISOString().split('T')[0];
-                        const endDayStr = endObj.toISOString().split('T')[0];
+                        // KEY FIX: Use Local Date Logic for Saving too
+                        const startDayStr = getLocalDayStr(start);
+                        const endDayStr = getLocalDayStr(now);
 
                         const currentHistory = data.history || {};
                         let updates = { isStudying: false, startTime: null, statusMsg: null };
@@ -337,7 +338,8 @@
                             const oldTotal = currentHistory[endDayStr] || 0;
                             updates[`history/${endDayStr}`] = oldTotal + duration;
                         } else {
-                            const midnight = new Date(endObj);
+                            // Split Midnight
+                            const midnight = new Date(now);
                             midnight.setHours(0,0,0,0);
                             
                             const yesterdayMs = midnight.getTime() - start;
@@ -362,7 +364,7 @@
             d.setDate(d.getDate() - 1); // Check yesterday first
             
             for(let i=0; i<365; i++) {
-                const dateStr = d.toISOString().split('T')[0];
+                const dateStr = getLocalDayStr(d.getTime());
                 const ms = history[dateStr] || 0;
                 if(ms >= goal) {
                     streak++;
@@ -407,11 +409,14 @@
                 `;
                 for(let s=0; s<startDay; s++) monthHTML += `<div class="day-box empty"></div>`;
                 for (let day = 1; day <= daysInMonth; day++) {
-                    const dateStr = `${currentYear}-${pad(month + 1)}-${pad(day)}`;
+                    // Generate local date string for this specific day
+                    const cellDate = new Date(currentYear, month, day);
+                    const dateStr = getLocalDayStr(cellDate.getTime());
+                    
                     const ms = history[dateStr] || 0;
                     totalYearMs += ms;
                     let classes = getColorClass(ms, goal);
-                    if (new Date(dateStr) > new Date()) classes = ''; 
+                    if (cellDate > new Date()) classes = ''; 
                     monthHTML += `<div class="day-box ${classes}" title="${dateStr}: ${formatHours(ms)}"></div>`;
                 }
                 monthHTML += `</div></div>`;
@@ -423,6 +428,16 @@
         window.closeHistory = () => document.getElementById('history-modal').classList.remove('open');
 
         // --- HELPERS ---
+        
+        // ** THE FIX **: Robust Local Date String Generator
+        function getLocalDayStr(ts = Date.now()) {
+            const d = new Date(ts);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
         function getColorClass(ms, goal) {
             if (ms < 3600000) return ''; 
             const pct = (ms / goal) * 100;
@@ -437,7 +452,7 @@
             for (let i = 29; i >= 0; i--) {
                 const d = new Date();
                 d.setDate(d.getDate() - i);
-                const dateStr = d.toISOString().split('T')[0];
+                const dateStr = getLocalDayStr(d.getTime());
                 const ms = history[dateStr] || 0;
                 html += `<div class="day-box ${getColorClass(ms, goal)}" title="${dateStr}"></div>`;
             }
@@ -449,13 +464,6 @@
             const hours = parseFloat(document.getElementById(`input-hours-${uid}`).value);
             if (hours) { update(ref(db, `users/${uid}`), { dailyGoal: hours * 3600000 }); toggleGoalInput(uid); }
         };
-
-        function getTodayString() { 
-            const d = new Date();
-            const offset = d.getTimezoneOffset() * 60000;
-            const localISOTime = (new Date(d - offset)).toISOString().slice(0, -1);
-            return localISOTime.split('T')[0];
-        }
 
         function formatTime(ms) { 
             const s = Math.floor((ms/1000)%60); 
