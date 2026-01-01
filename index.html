@@ -7,7 +7,7 @@
     <style>
         /* --- 1. GLOBAL RESET & BASICS --- */
         * { box-sizing: border-box; }
-        :root { --bg: #0d1117; --card: #161b22; --text: #c9d1d9; --border: #30363d; }
+        :root { --bg: #0d1117; --card: #161b22; --text: #c9d1d9; --border: #30363d; --modal-bg: #0d1117; }
         
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
         h1 { margin-bottom: 20px; color: #f0f6fc; }
@@ -28,21 +28,29 @@
         .screen.visible { display: block; }
         
         /* --- 4. DASHBOARD --- */
-        #dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; width: 100%; max-width: 1200px; display: none; }
+        #dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; width: 100%; max-width: 1200px; display: none; }
         #dashboard.visible { display: grid; }
         
         /* --- 5. CARDS --- */
         .card { background: var(--card); padding: 20px; border-radius: 10px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 15px; }
         .card.active { border-color: var(--accent); box-shadow: 0 0 10px rgba(255,255,255,0.05); }
 
-        .header { display: flex; justify-content: space-between; align-items: center; }
-        .name { font-size: 1.2rem; font-weight: bold; color: var(--accent); cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 4px; }
-        .name:hover { color: white; }
-
-        .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; background: #21262d; border: 1px solid var(--border); }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; }
+        
+        /* Name & Streak */
+        .identity { display: flex; flex-direction: column; }
+        .name { font-size: 1.3rem; font-weight: bold; color: var(--accent); cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 4px; }
+        .streak { font-size: 0.85rem; color: #ffa000; margin-top: 2px; font-weight: bold; display: flex; align-items: center; gap: 4px; }
+        
+        /* Status Badge */
+        .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; background: #21262d; border: 1px solid var(--border); white-space: nowrap; }
         .active .status-badge { background: var(--accent); color: white; border-color: var(--accent); }
 
-        .timer-display { font-size: 2.5rem; font-family: monospace; font-weight: bold; text-align: center; margin: 10px 0; }
+        /* Current Task Context */
+        .current-task { font-size: 0.9rem; color: #8b949e; text-align: center; font-style: italic; min-height: 1.2em; }
+        .active .current-task { color: #e6edf3; }
+
+        .timer-display { font-size: 2.8rem; font-family: monospace; font-weight: bold; text-align: center; margin: 5px 0; letter-spacing: -1px; }
         
         /* --- 6. HEATMAP --- */
         .heatmap-container { display: flex; flex-direction: column; gap: 5px; }
@@ -52,7 +60,7 @@
         .day-box { aspect-ratio: 1; border-radius: 2px; background: #2d333b; }
         .day-box.empty { background: transparent; border: none; }
 
-        /* Performance Colors */
+        /* Colors */
         .hm-red     { background-color: #ff5252; }
         .hm-yellow  { background-color: #ffd700; }
         .hm-lgreen  { background-color: #69f0ae; }
@@ -75,14 +83,12 @@
         .stat-val { font-size: 1.5rem; font-weight: bold; color: white; display: block; }
         .stat-lbl { font-size: 0.8rem; color: #8b949e; }
 
-        /* Year Grid */
         .year-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
         .month-block { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 10px; }
         .month-title { font-size: 0.9rem; color: #8b949e; margin-bottom: 8px; text-align: center; font-weight: bold; }
         
         .week-header { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 2px; }
         .week-day { font-size: 0.6rem; color: #6e7681; text-align: center; }
-        
         .month-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
         .month-days .day-box { width: 100%; border-radius: 1px; aspect-ratio: 1; }
 
@@ -99,7 +105,7 @@
 </head>
 <body>
 
-    <h1>Squad Tracker</h1>
+    <h1>🚀 Squad Goals</h1>
 
     <div id="history-modal">
         <div class="modal-content">
@@ -114,8 +120,8 @@
                         <span class="stat-lbl" id="stat-year-lbl">2026 Total</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-val" id="stat-active-days">0</span>
-                        <span class="stat-lbl">Active Days</span>
+                        <span class="stat-val" id="stat-streak">0</span>
+                        <span class="stat-lbl">Current Streak 🔥</span>
                     </div>
                 </div>
                 <div id="year-grid-container" class="year-grid"></div>
@@ -194,27 +200,52 @@
         function renderCards(data) {
             const container = document.getElementById('dashboard');
             container.innerHTML = '';
-            const todayStr = getTodayString();
+            
+            const todayStr = getTodayString(); 
+            const midnightTimestamp = new Date();
+            midnightTimestamp.setHours(0,0,0,0); 
 
             Object.keys(users).forEach(key => {
                 const userData = data[key] || {};
                 const history = userData.history || {};
                 const isMe = key === currentUser;
                 
-                const todayTotal = history[todayStr] || 0;
-                let displayTotal = todayTotal + (userData.isStudying ? (Date.now() - userData.startTime) : 0);
+                // 1. Calculate Today's Total (Midnight Aware)
+                const savedToday = history[todayStr] || 0;
+                let activeSessionToday = 0;
+                
+                if (userData.isStudying && userData.startTime) {
+                    if (userData.startTime < midnightTimestamp.getTime()) {
+                        activeSessionToday = Math.max(0, Date.now() - midnightTimestamp.getTime());
+                    } else {
+                        activeSessionToday = Date.now() - userData.startTime;
+                    }
+                }
+
+                let displayTotal = savedToday + activeSessionToday;
                 let goal = userData.dailyGoal || 3600000;
+
+                // 2. Calculate Streak
+                const streak = calculateStreak(history, goal);
+
+                // 3. Status Text
+                let statusText = userData.isStudying ? (userData.statusMsg || 'Working...') : 'Resting';
 
                 const card = document.createElement('div');
                 card.className = `card theme-${key} ${userData.isStudying ? 'active' : ''}`;
                 
                 card.innerHTML = `
                     <div class="header">
-                        <span class="name" onclick="openHistory('${key}')">${users[key]} ${isMe ? '(You)' : ''}</span>
+                        <div class="identity">
+                            <span class="name" onclick="openHistory('${key}')">${users[key]} ${isMe ? '(You)' : ''}</span>
+                            ${streak > 0 ? `<span class="streak">🔥 ${streak} day streak</span>` : ''}
+                        </div>
                         <span class="status-badge">
-                            ${userData.isStudying ? '🔥 FOCUSING' : '💤 RESTING'}
+                            ${userData.isStudying ? 'FOCUSING' : 'OFFLINE'}
                         </span>
                     </div>
+
+                    <div class="current-task">${userData.isStudying ? statusText : ''}</div>
 
                     <div class="timer-display" id="timer-${key}">${formatTime(displayTotal)}</div>
 
@@ -231,7 +262,7 @@
                     ${isMe ? `
                     <div class="controls">
                         ${!userData.isStudying 
-                            ? `<button class="btn-action" onclick="toggleStudy('${key}', true)">Start Focus</button>` 
+                            ? `<button class="btn-action" onclick="promptStart('${key}')">Start Focus</button>` 
                             : `<button class="btn-stop" onclick="toggleStudy('${key}', false)">Stop</button>`
                         }
                         <button style="background:#21262d" onclick="toggleGoalInput('${key}')">Set Goal</button>
@@ -248,38 +279,126 @@
                 if (userData.isStudying) {
                     localTimers[key] = setInterval(() => {
                         const now = Date.now();
-                        const liveDiff = now - userData.startTime;
-                        document.getElementById(`timer-${key}`).innerText = formatTime(todayTotal + liveDiff);
+                        const currentMidnight = new Date();
+                        currentMidnight.setHours(0,0,0,0);
+                        
+                        let liveDiff = 0;
+                        if (userData.startTime < currentMidnight.getTime()) {
+                            liveDiff = now - currentMidnight.getTime();
+                        } else {
+                            liveDiff = now - userData.startTime;
+                        }
+                        document.getElementById(`timer-${key}`).innerText = formatTime(savedToday + liveDiff);
                     }, 1000);
                 }
             });
         }
 
-        // --- HISTORY MODAL (FIXED FOR CALENDAR YEAR) ---
+        // --- ACTION LOGIC ---
+        
+        window.promptStart = (uid) => {
+            const task = prompt("What are you working on?", "Studying");
+            if (task !== null) {
+                toggleStudy(uid, true, task);
+            }
+        };
+
+        window.toggleStudy = (uid, start, taskMsg = "") => {
+            const userRef = ref(db, `users/${uid}`);
+            
+            if (start) {
+                update(userRef, { 
+                    isStudying: true, 
+                    startTime: Date.now(),
+                    statusMsg: taskMsg
+                });
+            } else {
+                get(userRef).then((snapshot) => {
+                    const data = snapshot.val();
+                    if (data && data.isStudying) {
+                        const now = Date.now();
+                        const start = data.startTime;
+                        
+                        const startObj = new Date(start);
+                        const endObj = new Date(now);
+                        const startDayStr = startObj.toISOString().split('T')[0];
+                        const endDayStr = endObj.toISOString().split('T')[0];
+
+                        const currentHistory = data.history || {};
+                        let updates = { isStudying: false, startTime: null, statusMsg: null };
+
+                        if (startDayStr === endDayStr) {
+                            const duration = now - start;
+                            const oldTotal = currentHistory[endDayStr] || 0;
+                            updates[`history/${endDayStr}`] = oldTotal + duration;
+                        } else {
+                            // Split Midnight
+                            const midnight = new Date(endObj);
+                            midnight.setHours(0,0,0,0);
+                            
+                            const yesterdayMs = midnight.getTime() - start;
+                            const todayMs = now - midnight.getTime();
+                            
+                            const prevDayTotal = currentHistory[startDayStr] || 0;
+                            updates[`history/${startDayStr}`] = prevDayTotal + yesterdayMs;
+                            
+                            const todayTotal = currentHistory[endDayStr] || 0;
+                            updates[`history/${endDayStr}`] = todayTotal + todayMs;
+                        }
+
+                        update(userRef, updates);
+                    }
+                });
+            }
+        };
+
+        // --- STREAK LOGIC ---
+        function calculateStreak(history, goal) {
+            let streak = 0;
+            const d = new Date();
+            // Start checking from Yesterday (since today isn't over)
+            d.setDate(d.getDate() - 1); 
+            
+            // Loop backwards for 365 days max
+            for(let i=0; i<365; i++) {
+                const dateStr = d.toISOString().split('T')[0];
+                const ms = history[dateStr] || 0;
+                
+                // Logic: Must match goal to keep streak alive
+                // (Optional: use > 1hr if you prefer strict minimum)
+                if(ms >= goal) {
+                    streak++;
+                } else {
+                    break; // Streak broken
+                }
+                d.setDate(d.getDate() - 1);
+            }
+            return streak;
+        }
+
+        // --- HISTORY MODAL ---
         window.openHistory = (uid) => {
             const userData = globalData[uid] || {};
             const history = userData.history || {};
             const goal = userData.dailyGoal || 3600000;
+            const streak = calculateStreak(history, goal);
             const modal = document.getElementById('history-modal');
             const currentYear = new Date().getFullYear();
             
-            document.getElementById('modal-user-name').innerText = `${users[uid]}'s ${currentYear} Journey`;
+            document.getElementById('modal-user-name').innerText = `${users[uid]}'s ${currentYear}`;
             document.getElementById('stat-year-lbl').innerText = `${currentYear} Total`;
+            document.getElementById('stat-streak').innerText = streak;
             
             const container = document.getElementById('year-grid-container');
             container.innerHTML = '';
             
             let totalYearMs = 0;
-            let activeDays = 0;
 
-            // Loop 0 (Jan) to 11 (Dec) for the CURRENT YEAR
             for (let month = 0; month < 12; month++) {
-                // Set date to 1st of this month, current year
                 const d = new Date(currentYear, month, 1);
-                
                 const monthName = d.toLocaleString('default', { month: 'long', year: 'numeric' });
                 const daysInMonth = new Date(currentYear, month + 1, 0).getDate();
-                const startDay = d.getDay(); // 0 (Sun) - 6 (Sat)
+                const startDay = d.getDay(); 
                 
                 let monthHTML = `
                     <div class="month-block">
@@ -290,42 +409,31 @@
                         <div class="month-days">
                 `;
 
-                // Add Empty "Ghost" Days for alignment
-                for(let s=0; s<startDay; s++) {
-                    monthHTML += `<div class="day-box empty"></div>`;
-                }
+                for(let s=0; s<startDay; s++) monthHTML += `<div class="day-box empty"></div>`;
 
-                // Fill Actual Days
                 for (let day = 1; day <= daysInMonth; day++) {
                     const dateStr = `${currentYear}-${pad(month + 1)}-${pad(day)}`;
                     const ms = history[dateStr] || 0;
-                    if(ms > 3600000) activeDays++; 
                     totalYearMs += ms;
                     
-                    // Don't show colors for future days (optional polish)
                     let classes = getColorClass(ms, goal);
                     if (new Date(dateStr) > new Date()) classes = ''; 
 
                     monthHTML += `<div class="day-box ${classes}" title="${dateStr}: ${formatHours(ms)}"></div>`;
                 }
-
                 monthHTML += `</div></div>`;
                 container.insertAdjacentHTML('beforeend', monthHTML);
             }
             
             document.getElementById('stat-total-hrs').innerText = formatHours(totalYearMs);
-            document.getElementById('stat-active-days').innerText = activeDays;
-
             modal.classList.add('open');
         };
 
-        window.closeHistory = () => {
-            document.getElementById('history-modal').classList.remove('open');
-        };
+        window.closeHistory = () => document.getElementById('history-modal').classList.remove('open');
 
         // --- HELPERS ---
         function getColorClass(ms, goal) {
-            if (ms < 3600000) return ''; 
+            if (ms < 3600000) return ''; // Must allow at least 1 hr to show color
             const pct = (ms / goal) * 100;
             if (pct >= 100) return 'hm-dgreen';
             if (pct >= 80) return 'hm-lgreen';
@@ -345,31 +453,19 @@
             return html;
         }
 
-        window.toggleStudy = (uid, start) => {
-            const userRef = ref(db, `users/${uid}`);
-            const todayStr = getTodayString();
-            if (start) {
-                update(userRef, { isStudying: true, startTime: Date.now() });
-            } else {
-                get(userRef).then((snapshot) => {
-                    const data = snapshot.val();
-                    if (data && data.isStudying) {
-                        const sessionTime = Date.now() - data.startTime;
-                        const currentHistory = data.history || {};
-                        const newTotal = (currentHistory[todayStr] || 0) + sessionTime;
-                        update(userRef, { isStudying: false, startTime: null, [`history/${todayStr}`]: newTotal });
-                    }
-                });
-            }
-        };
-
         window.toggleGoalInput = (uid) => document.getElementById(`goal-input-${uid}`).classList.toggle('show');
         window.saveGoal = (uid) => {
             const hours = parseFloat(document.getElementById(`input-hours-${uid}`).value);
             if (hours) { update(ref(db, `users/${uid}`), { dailyGoal: hours * 3600000 }); toggleGoalInput(uid); }
         };
 
-        function getTodayString() { return new Date().toISOString().split('T')[0]; }
+        function getTodayString() { 
+            const d = new Date();
+            const offset = d.getTimezoneOffset() * 60000;
+            const localISOTime = (new Date(d - offset)).toISOString().slice(0, -1);
+            return localISOTime.split('T')[0];
+        }
+
         function formatTime(ms) { 
             const s = Math.floor((ms/1000)%60); 
             const m = Math.floor((ms/(1000*60))%60); 
