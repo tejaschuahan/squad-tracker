@@ -7,12 +7,12 @@
     <style>
         /* --- 1. GLOBAL RESET & BASICS --- */
         * { box-sizing: border-box; }
-        :root { --bg: #0d1117; --card: #161b22; --text: #c9d1d9; --border: #30363d; --modal-bg: #0d1117; }
+        :root { --bg: #0d1117; --card: #161b22; --text: #c9d1d9; --border: #30363d; }
         
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
         h1 { margin-bottom: 20px; color: #f0f6fc; }
 
-        /* --- 2. USER IDENTITY THEMES --- */
+        /* --- 2. USER THEMES --- */
         .theme-user1 { --accent: #ff5252; } /* Tejas: Red */
         .theme-user2 { --accent: #2ea043; } /* Akash: Green */
         .theme-user3 { --accent: #2f81f7; } /* Krishna: Blue */
@@ -27,17 +27,15 @@
         .screen { text-align: center; margin-top: 50px; display: none; width: 100%; max-width: 400px; }
         .screen.visible { display: block; }
         
-        /* --- 4. DASHBOARD GRID --- */
+        /* --- 4. DASHBOARD --- */
         #dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; width: 100%; max-width: 1200px; display: none; }
         #dashboard.visible { display: grid; }
         
-        /* --- 5. CARD DESIGN --- */
+        /* --- 5. CARDS --- */
         .card { background: var(--card); padding: 20px; border-radius: 10px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 15px; }
         .card.active { border-color: var(--accent); box-shadow: 0 0 10px rgba(255,255,255,0.05); }
 
         .header { display: flex; justify-content: space-between; align-items: center; }
-        
-        /* Clickable Name Styling */
         .name { font-size: 1.2rem; font-weight: bold; color: var(--accent); cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 4px; }
         .name:hover { color: white; }
 
@@ -46,20 +44,21 @@
 
         .timer-display { font-size: 2.5rem; font-family: monospace; font-weight: bold; text-align: center; margin: 10px 0; }
         
-        /* --- 6. HEATMAP COLORS (UNIVERSAL) --- */
+        /* --- 6. HEATMAP --- */
         .heatmap-container { display: flex; flex-direction: column; gap: 5px; }
         .heatmap-label { font-size: 0.75rem; color: #8b949e; display: flex; justify-content: space-between; }
         .heatmap-grid { display: grid; grid-template-columns: repeat(15, 1fr); gap: 4px; } 
         
         .day-box { aspect-ratio: 1; border-radius: 2px; background: #2d333b; }
-        .day-box.empty { background: transparent; border: none; } /* For calendar alignment */
+        .day-box.empty { background: transparent; border: none; }
 
+        /* Performance Colors */
         .hm-red     { background-color: #ff5252; }
         .hm-yellow  { background-color: #ffd700; }
         .hm-lgreen  { background-color: #69f0ae; }
         .hm-dgreen  { background-color: #00c853; }
 
-        /* --- 7. HISTORY MODAL --- */
+        /* --- 7. MODAL --- */
         #history-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; display: none; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
         #history-modal.open { display: flex; }
         
@@ -76,12 +75,11 @@
         .stat-val { font-size: 1.5rem; font-weight: bold; color: white; display: block; }
         .stat-lbl { font-size: 0.8rem; color: #8b949e; }
 
-        /* Year Grid Layout */
+        /* Year Grid */
         .year-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
         .month-block { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 10px; }
         .month-title { font-size: 0.9rem; color: #8b949e; margin-bottom: 8px; text-align: center; font-weight: bold; }
         
-        /* Calendar Weekday Header */
         .week-header { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 2px; }
         .week-day { font-size: 0.6rem; color: #6e7681; text-align: center; }
         
@@ -93,16 +91,15 @@
         .btn-action { background: var(--accent); color: white; border: none; }
         .btn-stop { background: #da3633; color: white; border: none; }
         
-        /* Updated Input Area CSS */
         .goal-input-area { grid-column: span 2; display: none; gap: 8px; width: 100%; }
         .goal-input-area.show { display: flex; align-items: center; }
-        .goal-input-area input { flex: 1; min-width: 0; } /* Allows input to shrink */
-        .goal-input-area button { flex-shrink: 0; width: auto; white-space: nowrap; } /* Prevents button squash */
+        .goal-input-area input { flex: 1; min-width: 0; } 
+        .goal-input-area button { flex-shrink: 0; width: auto; white-space: nowrap; } 
     </style>
 </head>
 <body>
 
-    <h1>🚀 Squad Tracker</h1>
+    <h1>Squad Tracker</h1>
 
     <div id="history-modal">
         <div class="modal-content">
@@ -114,7 +111,7 @@
                 <div class="stats-row">
                     <div class="stat-item">
                         <span class="stat-val" id="stat-total-hrs">0h</span>
-                        <span class="stat-lbl">Last 12 Months</span>
+                        <span class="stat-lbl" id="stat-year-lbl">2026 Total</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-val" id="stat-active-days">0</span>
@@ -172,7 +169,7 @@
         let localTimers = {};
         let globalData = {}; 
 
-        // --- AUTH & INIT ---
+        // --- AUTH ---
         window.checkGate = () => {
             if (document.getElementById('squad-password').value === SHARED_PASSWORD) {
                 document.getElementById('gate-screen').classList.remove('visible');
@@ -258,14 +255,16 @@
             });
         }
 
-        // --- HISTORY MODAL (FIXED) ---
+        // --- HISTORY MODAL (FIXED FOR CALENDAR YEAR) ---
         window.openHistory = (uid) => {
             const userData = globalData[uid] || {};
             const history = userData.history || {};
             const goal = userData.dailyGoal || 3600000;
             const modal = document.getElementById('history-modal');
+            const currentYear = new Date().getFullYear();
             
-            document.getElementById('modal-user-name').innerText = `${users[uid]}'s Year Review`;
+            document.getElementById('modal-user-name').innerText = `${users[uid]}'s ${currentYear} Journey`;
+            document.getElementById('stat-year-lbl').innerText = `${currentYear} Total`;
             
             const container = document.getElementById('year-grid-container');
             container.innerHTML = '';
@@ -273,18 +272,14 @@
             let totalYearMs = 0;
             let activeDays = 0;
 
-            // FIX: Loop Chronologically (Oldest Month -> Newest Month)
-            // We start from 11 months ago and end at 0 (current month)
-            for (let m = 11; m >= 0; m--) {
-                const d = new Date();
-                d.setMonth(d.getMonth() - m);
-                d.setDate(1); // Set to 1st of month
+            // Loop 0 (Jan) to 11 (Dec) for the CURRENT YEAR
+            for (let month = 0; month < 12; month++) {
+                // Set date to 1st of this month, current year
+                const d = new Date(currentYear, month, 1);
                 
-                const year = d.getFullYear();
-                const month = d.getMonth();
                 const monthName = d.toLocaleString('default', { month: 'long', year: 'numeric' });
-                const daysInMonth = new Date(year, month + 1, 0).getDate();
-                const startDay = new Date(year, month, 1).getDay(); // 0 (Sun) to 6 (Sat)
+                const daysInMonth = new Date(currentYear, month + 1, 0).getDate();
+                const startDay = d.getDay(); // 0 (Sun) - 6 (Sat)
                 
                 let monthHTML = `
                     <div class="month-block">
@@ -295,19 +290,23 @@
                         <div class="month-days">
                 `;
 
-                // FIX: Add Empty Spacers for start of week alignment
+                // Add Empty "Ghost" Days for alignment
                 for(let s=0; s<startDay; s++) {
                     monthHTML += `<div class="day-box empty"></div>`;
                 }
 
-                // Add Days
+                // Fill Actual Days
                 for (let day = 1; day <= daysInMonth; day++) {
-                    const dateStr = `${year}-${pad(month + 1)}-${pad(day)}`;
+                    const dateStr = `${currentYear}-${pad(month + 1)}-${pad(day)}`;
                     const ms = history[dateStr] || 0;
                     if(ms > 3600000) activeDays++; 
                     totalYearMs += ms;
                     
-                    monthHTML += `<div class="day-box ${getColorClass(ms, goal)}" title="${dateStr}: ${formatHours(ms)}"></div>`;
+                    // Don't show colors for future days (optional polish)
+                    let classes = getColorClass(ms, goal);
+                    if (new Date(dateStr) > new Date()) classes = ''; 
+
+                    monthHTML += `<div class="day-box ${classes}" title="${dateStr}: ${formatHours(ms)}"></div>`;
                 }
 
                 monthHTML += `</div></div>`;
