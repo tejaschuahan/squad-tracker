@@ -197,7 +197,6 @@
             const container = document.getElementById('dashboard');
             container.innerHTML = '';
             
-            // Local Device Date
             const todayStr = getLocalDayStr(); 
             const midnightTimestamp = new Date();
             midnightTimestamp.setHours(0,0,0,0); 
@@ -205,7 +204,7 @@
             Object.keys(users).forEach(key => {
                 const userData = data[key] || {};
                 const history = userData.history || {};
-                const historyGoals = userData.goals || {}; // New: Goal History
+                const historyGoals = userData.goals || {}; 
                 const isMe = key === currentUser;
                 
                 // 1. Time Calculations
@@ -223,8 +222,7 @@
                 }
                 let displayTotal = savedToday + activeSessionToday;
 
-                // 2. Goal Calculations (DAY SPECIFIC)
-                // If today has a specific goal recorded, use it. Otherwise use global default.
+                // 2. Goal Calculations
                 const todayGoal = historyGoals[todayStr] || userData.dailyGoal || 3600000;
 
                 // 3. Stats & Streak
@@ -325,7 +323,6 @@
                     if (data && data.isStudying) {
                         const now = Date.now();
                         const start = data.startTime;
-                        
                         const startDayStr = getLocalDayStr(start);
                         const endDayStr = getLocalDayStr(now);
 
@@ -335,33 +332,21 @@
                         
                         let updates = { isStudying: false, startTime: null, statusMsg: null };
 
-                        // SNAPSHOT LOGIC: If today doesn't have a goal saved, lock in the default NOW.
-                        // This preserves history if the user changes the default goal in the future.
-                        if (!currentGoals[endDayStr]) {
-                            updates[`goals/${endDayStr}`] = defaultGoal;
-                        }
-                        // Also check start day if different
-                        if (startDayStr !== endDayStr && !currentGoals[startDayStr]) {
-                            updates[`goals/${startDayStr}`] = defaultGoal;
-                        }
+                        // SNAPSHOT: Lock in default goal for active days if missing
+                        if (!currentGoals[endDayStr]) updates[`goals/${endDayStr}`] = defaultGoal;
+                        if (startDayStr !== endDayStr && !currentGoals[startDayStr]) updates[`goals/${startDayStr}`] = defaultGoal;
 
                         if (startDayStr === endDayStr) {
                             const duration = now - start;
                             const oldTotal = currentHistory[endDayStr] || 0;
                             updates[`history/${endDayStr}`] = oldTotal + duration;
                         } else {
-                            // Split Midnight
                             const midnight = new Date(now);
                             midnight.setHours(0,0,0,0);
-                            
                             const yesterdayMs = midnight.getTime() - start;
                             const todayMs = now - midnight.getTime();
-                            
-                            const prevDayTotal = currentHistory[startDayStr] || 0;
-                            updates[`history/${startDayStr}`] = prevDayTotal + yesterdayMs;
-                            
-                            const todayTotal = currentHistory[endDayStr] || 0;
-                            updates[`history/${endDayStr}`] = todayTotal + todayMs;
+                            updates[`history/${startDayStr}`] = (currentHistory[startDayStr] || 0) + yesterdayMs;
+                            updates[`history/${endDayStr}`] = (currentHistory[endDayStr] || 0) + todayMs;
                         }
                         update(userRef, updates);
                     }
@@ -378,30 +363,23 @@
             for(let i=0; i<365; i++) {
                 const dateStr = getLocalDayStr(d.getTime());
                 const ms = history[dateStr] || 0;
-                // Look up goal for that specific day, fallback to default
                 const target = historyGoals[dateStr] || defaultGoal || 3600000;
                 
-                if(ms >= target) {
-                    streak++;
-                } else {
-                    break; 
-                }
+                if(ms >= target) streak++;
+                else break; 
                 d.setDate(d.getDate() - 1);
             }
             return streak;
         }
 
-        // --- HEATMAP GENERATION ---
         function generateDashboardHeatmap(history, historyGoals, defaultGoal) {
             let html = '';
             for (let i = 29; i >= 0; i--) {
                 const d = new Date();
                 d.setDate(d.getDate() - i);
                 const dateStr = getLocalDayStr(d.getTime());
-                
                 const ms = history[dateStr] || 0;
-                const target = historyGoals[dateStr] || defaultGoal || 3600000; // Historical or Default
-                
+                const target = historyGoals[dateStr] || defaultGoal || 3600000;
                 html += `<div class="day-box ${getColorClass(ms, target)}" title="${dateStr}"></div>`;
             }
             return html;
@@ -452,13 +430,9 @@
                 for (let day = 1; day <= daysInMonth; day++) {
                     const cellDate = new Date(currentYear, month, day);
                     const dateStr = getLocalDayStr(cellDate.getTime());
-                    
                     const ms = history[dateStr] || 0;
                     totalYearMs += ms;
-                    
-                    // Specific Goal Lookup
                     const target = historyGoals[dateStr] || defaultGoal;
-                    
                     let classes = getColorClass(ms, target);
                     if (cellDate > new Date()) classes = ''; 
                     monthHTML += `<div class="day-box ${classes}" title="${dateStr}: ${formatHours(ms)} / Goal: ${formatHours(target)}"></div>`;
@@ -471,25 +445,41 @@
         };
         window.closeHistory = () => document.getElementById('history-modal').classList.remove('open');
 
-        // --- GOAL SETTING (DATE SPECIFIC) ---
+        // --- SMART GOAL SAVING (THE FIX) ---
         window.toggleGoalInput = (uid) => document.getElementById(`goal-input-${uid}`).classList.toggle('show');
         
         window.saveGoal = (uid) => {
             const hours = parseFloat(document.getElementById(`input-hours-${uid}`).value);
-            if (hours) { 
-                const ms = hours * 3600000;
+            if (!hours) return;
+            
+            const newGoalMs = hours * 3600000;
+            const userRef = ref(db, `users/${uid}`);
+
+            // 1. READ BEFORE WRITE (To Backfill)
+            get(userRef).then((snapshot) => {
+                const data = snapshot.val() || {};
+                const oldDefault = data.dailyGoal || 3600000;
+                const history = data.history || {};
+                const goals = data.goals || {};
                 const todayStr = getLocalDayStr();
-                
-                // Save to:
-                // 1. goals/YYYY-MM-DD (Locks it for today and history)
-                // 2. dailyGoal (Updates default for future days)
+
                 let updates = {};
-                updates[`goals/${todayStr}`] = ms;
-                updates[`dailyGoal`] = ms; 
-                
-                update(ref(db, `users/${uid}`), updates);
-                toggleGoalInput(uid); 
-            }
+
+                // 2. BACKFILL STRATEGY:
+                // If a past day has history but NO saved goal, lock it to the OLD default
+                Object.keys(history).forEach(dateKey => {
+                    if (dateKey !== todayStr && !goals[dateKey]) {
+                        updates[`goals/${dateKey}`] = oldDefault;
+                    }
+                });
+
+                // 3. SET NEW GOAL
+                updates[`goals/${todayStr}`] = newGoalMs; // Today = New Goal
+                updates[`dailyGoal`] = newGoalMs;         // Future = New Goal
+
+                update(userRef, updates);
+                toggleGoalInput(uid);
+            });
         };
 
         // --- UTILS ---
