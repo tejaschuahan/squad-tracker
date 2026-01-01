@@ -5,74 +5,75 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Squad Goals</title>
     <style>
-        /* 1. Global Reset */
+        /* --- 1. GLOBAL RESET & BASICS --- */
         * { box-sizing: border-box; }
-
-        :root { --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; --green: #00e676; --red: #ff5252; --gold: #ffd700; --bar-bg: #333; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+        :root { --bg: #0d1117; --card: #161b22; --text: #c9d1d9; --border: #30363d; }
         
-        h1 { margin-bottom: 30px; letter-spacing: 1px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+        h1 { margin-bottom: 20px; color: #f0f6fc; }
 
-        /* 2. Inputs & Buttons */
-        select, button, input { padding: 12px 15px; border-radius: 6px; border: none; font-size: 0.95rem; outline: none; }
-        select, input { background: #333; color: white; border: 1px solid #444; width: 100%; margin-bottom: 10px;}
-        input:focus { border-color: var(--green); }
-        button { cursor: pointer; font-weight: bold; transition: opacity 0.2s; }
-        button:hover { opacity: 0.8; }
-        
-        .btn-enter { background: var(--green); color: black; width: 100%; }
+        /* --- 2. USER SPECIFIC THEMES (Tejas=Red, Akash=Green, Krishna=Blue) --- */
+        .theme-user1 { --accent: #ff5252; --accent-dim: rgba(255, 82, 82, 0.2); }
+        .theme-user2 { --accent: #2ea043; --accent-dim: rgba(46, 160, 67, 0.2); }
+        .theme-user3 { --accent: #2f81f7; --accent-dim: rgba(47, 129, 247, 0.2); }
+
+        /* --- 3. UI ELEMENTS --- */
+        select, button, input { padding: 10px 15px; border-radius: 6px; border: 1px solid var(--border); font-size: 0.9rem; outline: none; background: #21262d; color: white; }
+        button { cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { filter: brightness(1.2); }
+        .btn-main { background: #238636; color: white; border: none; width: 100%; }
         
         /* Screens */
         .screen { text-align: center; margin-top: 50px; display: none; width: 100%; max-width: 400px; }
         .screen.visible { display: block; }
         
-        /* Dashboard Grid */
-        #dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; width: 100%; max-width: 1000px; display: none; }
+        /* --- 4. DASHBOARD GRID --- */
+        #dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; width: 100%; max-width: 1200px; display: none; }
         #dashboard.visible { display: grid; }
         
-        /* Card Styles */
-        .card { background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid #333; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        .card.active { border: 1px solid var(--green); box-shadow: 0 0 15px rgba(0, 230, 118, 0.1); }
-        .card.goal-met { border: 1px solid var(--gold); }
+        /* --- 5. CARD DESIGN --- */
+        .card { background: var(--card); padding: 20px; border-radius: 10px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 15px; }
+        .card.active { border-color: var(--accent); box-shadow: 0 0 15px var(--accent-dim); }
 
         .header { display: flex; justify-content: space-between; align-items: center; }
-        .name { font-size: 1.3rem; font-weight: bold; }
-        .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; }
-        .studying { background: rgba(0, 230, 118, 0.1); color: var(--green); }
-        .slack { background: rgba(255, 82, 82, 0.1); color: var(--red); }
+        .name { font-size: 1.2rem; font-weight: bold; color: var(--accent); }
+        .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; background: #21262d; border: 1px solid var(--border); }
+        .active .status-badge { background: var(--accent); color: white; border-color: var(--accent); }
 
-        /* Timer & Progress */
-        .timer-display { font-size: 2rem; font-family: 'Courier New', monospace; font-weight: bold; text-align: center; margin: 5px 0; letter-spacing: -1px; }
+        .timer-display { font-size: 2.5rem; font-family: monospace; font-weight: bold; text-align: center; margin: 10px 0; }
         
-        .progress-section { background: #161616; padding: 12px; border-radius: 8px; }
-        .progress-labels { display: flex; justify-content: space-between; font-size: 0.8rem; color: #aaa; margin-bottom: 5px; }
-        .progress-bar-bg { width: 100%; height: 8px; background: var(--bar-bg); border-radius: 4px; overflow: hidden; }
-        .progress-fill { height: 100%; background: var(--green); width: 0%; transition: width 0.5s ease; }
-        .goal-met .progress-fill { background: var(--gold); }
+        /* --- 6. HEATMAP (GitHub Style) --- */
+        .heatmap-container { display: flex; flex-direction: column; gap: 5px; }
+        .heatmap-label { font-size: 0.75rem; color: #8b949e; display: flex; justify-content: space-between; }
+        .heatmap-grid { display: grid; grid-template-columns: repeat(15, 1fr); gap: 4px; } /* 2 weeks per row roughly */
+        .day-box { aspect-ratio: 1; border-radius: 2px; background: #2d333b; }
+        /* Opacity levels for activity */
+        .level-1 { background: var(--accent); opacity: 0.3; }
+        .level-2 { background: var(--accent); opacity: 0.5; }
+        .level-3 { background: var(--accent); opacity: 0.7; }
+        .level-4 { background: var(--accent); opacity: 1.0; }
 
-        /* Controls */
+        /* --- 7. CONTROLS --- */
         .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: auto; }
+        .btn-action { background: var(--accent); color: white; border: none; }
+        .btn-stop { background: #da3633; color: white; border: none; }
         
-        .btn-start { background: var(--green); color: black; }
-        .btn-stop { background: var(--red); color: white; }
-        .btn-goal { background: #444; color: white; }
-
-        /* Fixed Layout for Goal Input */
+        /* Goal Input */
         .goal-input-area { grid-column: span 2; display: none; gap: 8px; width: 100%; }
         .goal-input-area.show { display: flex; align-items: center; }
-        .goal-input-area input { flex: 1; margin: 0; min-width: 0; } 
-        .goal-input-area button { flex: 0 0 auto; width: auto; margin: 0; padding: 12px 20px; }
+        .goal-input-area input { flex: 1; } 
     </style>
 </head>
 <body>
 
-    <h1>🚀 Squad Goals</h1>
+    <h1>🚀 Squad Tracker</h1>
 
     <div id="gate-screen" class="screen visible">
-        <p>Enter Squad Password</p>
+        <p>🔒 Enter Squad Password</p>
         <input type="password" id="squad-password" placeholder="Password...">
-        <button class="btn-enter" onclick="checkGate()">Unlock</button>
-        <p id="error-msg" style="color: var(--red); display: none; margin-top:10px;">Wrong password!</p>
+        <br><br>
+        <button class="btn-main" onclick="checkGate()">Unlock</button>
+        <p id="error-msg" style="color: #ff5252; display: none; margin-top:10px;">Access Denied</p>
     </div>
 
     <div id="auth-screen" class="screen">
@@ -82,21 +83,20 @@
             <option value="user2">Akash</option>
             <option value="user3">Krishna</option>
         </select>
-        <button class="btn-enter" onclick="enterDashboard()">Enter Dashboard</button>
+        <br><br>
+        <button class="btn-main" onclick="enterDashboard()">Enter Dashboard</button>
     </div>
 
     <div id="dashboard"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, update, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, update, onValue, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // --- CONFIGURATION START ---
-        
-        // 1. SET YOUR PASSWORD
+        // --- CONFIGURATION ---
         const SHARED_PASSWORD = "focus"; 
 
-        // 2. PASTE FIREBASE CONFIG
+        // PASTE FIREBASE CONFIG HERE
         const firebaseConfig = {
             apiKey: "AIzaSyABF7QC5sAGW2SmphPbEwOcRMSml-6Ztks",
             authDomain: "squad-goals-aab2d.firebaseapp.com",
@@ -107,13 +107,12 @@
             appId: "1:447626600468:web:0da98bd1df01ade25d0701"
         };
 
-        // 3. SET NAMES
         const users = { 
             'user1': 'Tejas', 
             'user2': 'Akash', 
             'user3': 'Krishna' 
         }; 
-        // --- CONFIGURATION END ---
+        // ---------------------
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
@@ -121,10 +120,9 @@
         let currentUser = null;
         let localTimers = {};
 
-        // --- LOGIC ---
+        // --- AUTH LOGIC ---
         window.checkGate = () => {
-            const input = document.getElementById('squad-password').value;
-            if (input === SHARED_PASSWORD) {
+            if (document.getElementById('squad-password').value === SHARED_PASSWORD) {
                 document.getElementById('gate-screen').classList.remove('visible');
                 document.getElementById('auth-screen').classList.add('visible');
             } else {
@@ -142,89 +140,131 @@
             });
         };
 
+        // --- RENDER LOGIC ---
         function renderCards(data) {
             const container = document.getElementById('dashboard');
             container.innerHTML = '';
+            const todayStr = getTodayString();
 
             Object.keys(users).forEach(key => {
-                const userData = data[key] || { isStudying: false, startTime: 0, totalToday: 0, dailyGoal: 3600000 };
+                const userData = data[key] || {};
+                const history = userData.history || {};
                 const isMe = key === currentUser;
                 
+                // Get time strictly for TODAY from history, or 0
+                const todayTotal = history[todayStr] || 0;
+                
+                // Live calculation
                 let currentSession = userData.isStudying ? (Date.now() - userData.startTime) : 0;
-                let totalTime = (userData.totalToday || 0) + currentSession;
+                let displayTotal = todayTotal + currentSession;
                 let goal = userData.dailyGoal || 3600000;
-                let percentage = Math.min((totalTime / goal) * 100, 100);
-                const isGoalMet = totalTime >= goal;
 
                 const card = document.createElement('div');
-                card.className = `card ${userData.isStudying ? 'active' : ''} ${isGoalMet ? 'goal-met' : ''}`;
+                // Assign Theme Class based on user key
+                card.className = `card theme-${key} ${userData.isStudying ? 'active' : ''}`;
                 
                 card.innerHTML = `
                     <div class="header">
                         <span class="name">${users[key]} ${isMe ? '(You)' : ''}</span>
-                        <span class="status-badge ${userData.isStudying ? 'studying' : 'slack'}">
-                            ${userData.isStudying ? 'FOCUSING' : 'RESTING'}
+                        <span class="status-badge">
+                            ${userData.isStudying ? '🔥 CRUSHING IT' : '💤 SLACKING'}
                         </span>
                     </div>
 
                     <div class="timer-display" id="timer-${key}">
-                        ${formatTime(userData.isStudying ? currentSession : 0)}
+                        ${formatTime(displayTotal)}
                     </div>
 
-                    <div class="progress-section">
-                        <div class="progress-labels">
-                            <span>Today: ${formatHours(totalTime)}</span>
+                    <div class="heatmap-container">
+                        <div class="heatmap-label">
+                            <span>Last 30 Days</span>
                             <span>Goal: ${formatHours(goal)}</span>
                         </div>
-                        <div class="progress-bar-bg">
-                            <div class="progress-fill" style="width: ${percentage}%"></div>
+                        <div class="heatmap-grid">
+                            ${generateHeatmapHTML(history, goal)}
                         </div>
                     </div>
 
                     ${isMe ? `
                     <div class="controls">
                         ${!userData.isStudying 
-                            ? `<button class="btn-start" onclick="toggleStudy('${key}', true)">Start</button>` 
+                            ? `<button class="btn-action" onclick="toggleStudy('${key}', true)">Start Focus</button>` 
                             : `<button class="btn-stop" onclick="toggleStudy('${key}', false)">Stop</button>`
                         }
-                        <button class="btn-goal" onclick="toggleGoalInput('${key}')">Set Goal</button>
+                        <button style="background:#21262d" onclick="toggleGoalInput('${key}')">Set Goal</button>
                         
                         <div id="goal-input-${key}" class="goal-input-area">
                             <input type="number" id="input-hours-${key}" placeholder="Hrs" min="0.5" step="0.5">
-                            <button class="btn-enter" onclick="saveGoal('${key}')">Save</button>
+                            <button class="btn-main" style="width:auto;" onclick="saveGoal('${key}')">Save</button>
                         </div>
                     </div>
                     ` : ''}
                 `;
-                
                 container.appendChild(card);
 
+                // Live Ticking
                 if (localTimers[key]) clearInterval(localTimers[key]);
                 if (userData.isStudying) {
                     localTimers[key] = setInterval(() => {
                         const now = Date.now();
                         const liveDiff = now - userData.startTime;
-                        document.getElementById(`timer-${key}`).innerText = formatTime(liveDiff);
+                        // Update the timer display with History + Current Session
+                        document.getElementById(`timer-${key}`).innerText = formatTime(todayTotal + liveDiff);
                     }, 1000);
                 }
             });
         }
 
+        // --- HEATMAP GENERATOR ---
+        function generateHeatmapHTML(history, goal) {
+            let html = '';
+            // Generate last 30 days
+            for (let i = 29; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const dateStr = d.toISOString().split('T')[0]; // YYYY-MM-DD
+                
+                const ms = history[dateStr] || 0;
+                let level = '';
+                
+                // Color intensity logic
+                if (ms > 0) level = 'level-1';
+                if (ms > goal * 0.25) level = 'level-2';
+                if (ms > goal * 0.5) level = 'level-3';
+                if (ms >= goal) level = 'level-4';
+
+                html += `<div class="day-box ${level}" title="${dateStr}: ${formatHours(ms)}"></div>`;
+            }
+            return html;
+        }
+
+        // --- ACTIONS ---
         window.toggleStudy = (uid, start) => {
+            const userRef = ref(db, `users/${uid}`);
+            const todayStr = getTodayString();
+
             if (start) {
-                update(ref(db, `users/${uid}`), { isStudying: true, startTime: Date.now() });
+                update(userRef, { isStudying: true, startTime: Date.now() });
             } else {
-                onValue(ref(db, `users/${uid}`), (snap) => {
-                    const d = snap.val();
-                    if (d.isStudying) {
-                        const added = Date.now() - d.startTime;
-                        update(ref(db, `users/${uid}`), { 
+                // Fetch current state to save history safely
+                get(userRef).then((snapshot) => {
+                    const data = snapshot.val();
+                    if (data && data.isStudying) {
+                        const sessionTime = Date.now() - data.startTime;
+                        
+                        // Get existing time for TODAY
+                        const currentHistory = data.history || {};
+                        const previousTodayTotal = currentHistory[todayStr] || 0;
+                        const newTotal = previousTodayTotal + sessionTime;
+
+                        // Save to specific date node
+                        update(userRef, { 
                             isStudying: false, 
-                            startTime: null, 
-                            totalToday: (d.totalToday || 0) + added 
+                            startTime: null,
+                            [`history/${todayStr}`]: newTotal // Updates specific date key
                         });
                     }
-                }, { onlyOnce: true });
+                });
             }
         };
 
@@ -235,12 +275,15 @@
         window.saveGoal = (uid) => {
             const hours = parseFloat(document.getElementById(`input-hours-${uid}`).value);
             if (hours) {
-                const ms = hours * 60 * 60 * 1000;
-                update(ref(db, `users/${uid}`), { dailyGoal: ms });
+                update(ref(db, `users/${uid}`), { dailyGoal: hours * 3600000 });
                 toggleGoalInput(uid);
             }
         };
 
+        // --- HELPERS ---
+        function getTodayString() {
+            return new Date().toISOString().split('T')[0];
+        }
         function formatTime(ms) {
             const s = Math.floor((ms/1000)%60);
             const m = Math.floor((ms/(1000*60))%60);
@@ -248,8 +291,7 @@
             return `${pad(h)}:${pad(m)}:${pad(s)}`;
         }
         function formatHours(ms) {
-            const h = (ms / (1000*60*60)).toFixed(1);
-            return `${h}h`;
+            return (ms / (1000*60*60)).toFixed(1) + 'h';
         }
         function pad(n) { return n < 10 ? '0'+n : n; }
     </script>
