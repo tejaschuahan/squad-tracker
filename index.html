@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Squad Accountability</title>
+    <style>
+        :root { --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; --green: #00e676; --red: #ff5252; --gold: #ffd700; --bar-bg: #333; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+        
+        h1 { margin-bottom: 30px; letter-spacing: 1px; }
+        
+        /* Input & Button Styles */
+        select, button, input { padding: 12px 18px; border-radius: 6px; border: none; font-size: 1rem; margin: 5px; outline: none; }
+        select, input { background: #333; color: white; border: 1px solid #444; }
+        input:focus { border-color: var(--green); }
+        button { cursor: pointer; font-weight: bold; transition: opacity 0.2s; }
+        button:hover { opacity: 0.8; }
+        .btn-enter { background: var(--green); color: black; }
+        .btn-danger { background: var(--red); color: white; }
+
+        /* Screens */
+        .screen { text-align: center; margin-top: 50px; display: none; }
+        .screen.visible { display: block; }
+        
+        /* Dashboard Grid */
+        #dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; width: 100%; max-width: 900px; display: none; }
+        #dashboard.visible { display: grid; }
+        
+        /* Card Styles */
+        .card { background: var(--card); padding: 25px; border-radius: 12px; border: 1px solid #333; position: relative; display: flex; flex-direction: column; gap: 15px; }
+        .card.active { border: 1px solid var(--green); box-shadow: 0 0 15px rgba(0, 230, 118, 0.1); }
+        .card.goal-met { border: 1px solid var(--gold); }
+
+        .header { display: flex; justify-content: space-between; align-items: center; }
+        .name { font-size: 1.4rem; font-weight: bold; }
+        .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; letter-spacing: 1px; }
+        .studying { background: rgba(0, 230, 118, 0.1); color: var(--green); }
+        .slack { background: rgba(255, 82, 82, 0.1); color: var(--red); }
+
+        /* Timer & Progress */
+        .timer-display { font-size: 2.2rem; font-family: 'Courier New', monospace; font-weight: bold; text-align: center; margin: 10px 0; }
+        .progress-section { background: #161616; padding: 15px; border-radius: 8px; }
+        .progress-labels { display: flex; justify-content: space-between; font-size: 0.85rem; color: #aaa; margin-bottom: 5px; }
+        .progress-bar-bg { width: 100%; height: 10px; background: var(--bar-bg); border-radius: 5px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--green); width: 0%; transition: width 0.5s ease; }
+        .goal-met .progress-fill { background: var(--gold); box-shadow: 0 0 10px var(--gold); }
+
+        /* Controls */
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: auto; }
+        .btn-start { background: var(--green); color: black; }
+        .btn-stop { background: var(--red); color: white; }
+        .btn-goal { background: #444; color: white; }
+        .goal-input-area { grid-column: span 2; display: none; gap: 5px; }
+        .goal-input-area.show { display: flex; }
+    </style>
+</head>
+<body>
+
+    <h1>🚀 Squad Goals</h1>
+
+    <div id="gate-screen" class="screen visible">
+        <p>Enter Squad Password</p>
+        <input type="password" id="squad-password" placeholder="Password...">
+        <br>
+        <button class="btn-enter" onclick="checkGate()">Unlock</button>
+        <p id="error-msg" style="color: var(--red); display: none; margin-top:10px;">Wrong password!</p>
+    </div>
+
+    <div id="auth-screen" class="screen">
+        <h3>Who are you?</h3>
+        <select id="user-select">
+            <option value="user1">User 1</option>
+            <option value="user2">User 2</option>
+            <option value="user3">User 3</option>
+        </select>
+        <br>
+        <button class="btn-enter" onclick="enterDashboard()">Enter Dashboard</button>
+    </div>
+
+    <div id="dashboard"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, update, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        // --- CONFIGURATION ---
+        
+        // 1. SET YOUR PASSWORD HERE
+        const SHARED_PASSWORD = "focus"; 
+
+        // 2. PASTE FIREBASE CONFIG HERE
+        const firebaseConfig = {
+            apiKey: "AIzaSyABF7QC5sAGW2SmphPbEwOcRMSml-6Ztks",
+            authDomain: "squad-goals-aab2d.firebaseapp.com",
+            databaseURL: "https://squad-goals-aab2d-default-rtdb.firebaseio.com",
+            projectId: "squad-goals-aab2d",
+            storageBucket: "squad-goals-aab2d.firebasestorage.app",
+            messagingSenderId: "447626600468",
+            appId: "1:447626600468:web:0da98bd1df01ade25d0701"
+        };
+        // ---------------------
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        
+        let currentUser = null;
+        let localTimers = {};
+        
+        // 3. EDIT NAMES HERE
+        const users = { 
+            'user1': 'Tejas', 
+            'user2': 'Akash', 
+            'user3': 'Krishna' 
+        }; 
+
+        // --- GATEKEEPER LOGIC ---
+        window.checkGate = () => {
+            const input = document.getElementById('squad-password').value;
+            if (input === SHARED_PASSWORD) {
+                document.getElementById('gate-screen').classList.remove('visible');
+                document.getElementById('auth-screen').classList.add('visible');
+            } else {
+                document.getElementById('error-msg').style.display = 'block';
+            }
+        };
+
+        // --- APP LOGIC ---
+        window.enterDashboard = () => {
+            currentUser = document.getElementById('user-select').value;
+            document.getElementById('auth-screen').classList.remove('visible');
+            document.getElementById('dashboard').classList.add('visible');
+            
+            onValue(ref(db, 'users'), (snapshot) => {
+                renderCards(snapshot.val() || {});
+            });
+        };
+
+        function renderCards(data) {
+            const container = document.getElementById('dashboard');
+            container.innerHTML = '';
+
+            Object.keys(users).forEach(key => {
+                const userData = data[key] || { isStudying: false, startTime: 0, totalToday: 0, dailyGoal: 3600000 };
+                const isMe = key === currentUser;
+                
+                // Auto-reset logic: If last active was yesterday, reset total
+                // (This is a simplified check for client-side)
+                
+                let currentSession = userData.isStudying ? (Date.now() - userData.startTime) : 0;
+                let totalTime = (userData.totalToday || 0) + currentSession;
+                let goal = userData.dailyGoal || 3600000;
+                let percentage = Math.min((totalTime / goal) * 100, 100);
+                const isGoalMet = totalTime >= goal;
+
+                const card = document.createElement('div');
+                card.className = `card ${userData.isStudying ? 'active' : ''} ${isGoalMet ? 'goal-met' : ''}`;
+                
+                card.innerHTML = `
+                    <div class="header">
+                        <span class="name">${users[key]} ${isMe ? '(You)' : ''}</span>
+                        <span class="status-badge ${userData.isStudying ? 'studying' : 'slack'}">
+                            ${userData.isStudying ? 'FOCUSING' : 'RESTING'}
+                        </span>
+                    </div>
+
+                    <div class="timer-display" id="timer-${key}">
+                        ${formatTime(userData.isStudying ? currentSession : 0)}
+                    </div>
+
+                    <div class="progress-section">
+                        <div class="progress-labels">
+                            <span>Today: ${formatHours(totalTime)}</span>
+                            <span>Goal: ${formatHours(goal)}</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-fill" style="width: ${percentage}%"></div>
+                        </div>
+                    </div>
+
+                    ${isMe ? `
+                    <div class="controls">
+                        ${!userData.isStudying 
+                            ? `<button class="btn-start" onclick="toggleStudy('${key}', true)">Start</button>` 
+                            : `<button class="btn-stop" onclick="toggleStudy('${key}', false)">Stop</button>`
+                        }
+                        <button class="btn-goal" onclick="toggleGoalInput('${key}')">Set Goal</button>
+                        
+                        <div id="goal-input-${key}" class="goal-input-area">
+                            <input type="number" id="input-hours-${key}" placeholder="Hours" min="0.1" step="0.5">
+                            <button class="btn-enter" onclick="saveGoal('${key}')">Save</button>
+                        </div>
+                    </div>
+                    ` : ''}
+                `;
+                
+                container.appendChild(card);
+
+                if (localTimers[key]) clearInterval(localTimers[key]);
+                if (userData.isStudying) {
+                    localTimers[key] = setInterval(() => {
+                        const now = Date.now();
+                        const liveDiff = now - userData.startTime;
+                        document.getElementById(`timer-${key}`).innerText = formatTime(liveDiff);
+                    }, 1000);
+                }
+            });
+        }
+
+        window.toggleStudy = (uid, start) => {
+            if (start) {
+                update(ref(db, `users/${uid}`), { isStudying: true, startTime: Date.now() });
+            } else {
+                onValue(ref(db, `users/${uid}`), (snap) => {
+                    const d = snap.val();
+                    if (d.isStudying) {
+                        const added = Date.now() - d.startTime;
+                        update(ref(db, `users/${uid}`), { 
+                            isStudying: false, 
+                            startTime: null, 
+                            totalToday: (d.totalToday || 0) + added 
+                        });
+                    }
+                }, { onlyOnce: true });
+            }
+        };
+
+        window.toggleGoalInput = (uid) => {
+            document.getElementById(`goal-input-${uid}`).classList.toggle('show');
+        };
+
+        window.saveGoal = (uid) => {
+            const hours = parseFloat(document.getElementById(`input-hours-${uid}`).value);
+            if (hours) {
+                const ms = hours * 60 * 60 * 1000;
+                update(ref(db, `users/${uid}`), { dailyGoal: ms });
+                toggleGoalInput(uid);
+            }
+        };
+
+        function formatTime(ms) {
+            const s = Math.floor((ms/1000)%60);
+            const m = Math.floor((ms/(1000*60))%60);
+            const h = Math.floor((ms/(1000*60*60)));
+            return `${pad(h)}:${pad(m)}:${pad(s)}`;
+        }
+        function formatHours(ms) {
+            const h = (ms / (1000*60*60)).toFixed(1);
+            return `${h}h`;
+        }
+        function pad(n) { return n < 10 ? '0'+n : n; }
+    </script>
+</body>
+</html>
