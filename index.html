@@ -173,7 +173,6 @@
         window.checkGate = () => {
             const input = document.getElementById('squad-password').value.trim().toLowerCase();
             const correct = SHARED_PASSWORD.toLowerCase();
-            
             if (input === correct) {
                 document.getElementById('gate-screen').classList.remove('visible');
                 document.getElementById('auth-screen').classList.add('visible');
@@ -187,7 +186,6 @@
             currentUser = document.getElementById('user-select').value;
             document.getElementById('auth-screen').classList.remove('visible');
             document.getElementById('dashboard').classList.add('visible');
-            
             onValue(ref(db, 'users'), (snapshot) => {
                 globalData = snapshot.val() || {};
                 renderCards(globalData);
@@ -199,7 +197,7 @@
             const container = document.getElementById('dashboard');
             container.innerHTML = '';
             
-            // KEY FIX: Use Local Day String
+            // Local Device Date
             const todayStr = getLocalDayStr(); 
             const midnightTimestamp = new Date();
             midnightTimestamp.setHours(0,0,0,0); 
@@ -207,14 +205,12 @@
             Object.keys(users).forEach(key => {
                 const userData = data[key] || {};
                 const history = userData.history || {};
+                const historyGoals = userData.goals || {}; // New: Goal History
                 const isMe = key === currentUser;
                 
-                // CALC 1: TOTAL TODAY (Resets at Midnight)
-                // Now guarantees matching key between Save and Read
+                // 1. Time Calculations
                 const savedToday = history[todayStr] || 0;
                 let activeSessionToday = 0;
-                
-                // CALC 2: CURRENT SESSION (Continuous)
                 let currentSessionTotal = 0;
 
                 if (userData.isStudying && userData.startTime) {
@@ -225,10 +221,14 @@
                         activeSessionToday = currentSessionTotal;
                     }
                 }
-
                 let displayTotal = savedToday + activeSessionToday;
-                let goal = userData.dailyGoal || 3600000;
-                const streak = calculateStreak(history, goal);
+
+                // 2. Goal Calculations (DAY SPECIFIC)
+                // If today has a specific goal recorded, use it. Otherwise use global default.
+                const todayGoal = historyGoals[todayStr] || userData.dailyGoal || 3600000;
+
+                // 3. Stats & Streak
+                const streak = calculateStreak(history, historyGoals, userData.dailyGoal);
                 let statusText = userData.isStudying ? (userData.statusMsg || 'Working...') : 'Resting';
 
                 const card = document.createElement('div');
@@ -261,10 +261,10 @@
                     <div class="heatmap-container">
                         <div class="heatmap-label">
                             <span>Last 30 Days</span>
-                            <span>Goal: ${formatHours(goal)}</span>
+                            <span>Goal: ${formatHours(todayGoal)}</span>
                         </div>
                         <div class="heatmap-grid">
-                            ${generateDashboardHeatmap(history, goal)}
+                            ${generateDashboardHeatmap(history, historyGoals, userData.dailyGoal)}
                         </div>
                     </div>
 
@@ -326,12 +326,24 @@
                         const now = Date.now();
                         const start = data.startTime;
                         
-                        // KEY FIX: Use Local Date Logic for Saving too
                         const startDayStr = getLocalDayStr(start);
                         const endDayStr = getLocalDayStr(now);
 
                         const currentHistory = data.history || {};
+                        const currentGoals = data.goals || {};
+                        const defaultGoal = data.dailyGoal || 3600000;
+                        
                         let updates = { isStudying: false, startTime: null, statusMsg: null };
+
+                        // SNAPSHOT LOGIC: If today doesn't have a goal saved, lock in the default NOW.
+                        // This preserves history if the user changes the default goal in the future.
+                        if (!currentGoals[endDayStr]) {
+                            updates[`goals/${endDayStr}`] = defaultGoal;
+                        }
+                        // Also check start day if different
+                        if (startDayStr !== endDayStr && !currentGoals[startDayStr]) {
+                            updates[`goals/${startDayStr}`] = defaultGoal;
+                        }
 
                         if (startDayStr === endDayStr) {
                             const duration = now - start;
@@ -357,16 +369,19 @@
             }
         };
 
-        // --- STREAK LOGIC ---
-        function calculateStreak(history, goal) {
+        // --- STREAK & GOAL LOGIC ---
+        function calculateStreak(history, historyGoals, defaultGoal) {
             let streak = 0;
             const d = new Date();
-            d.setDate(d.getDate() - 1); // Check yesterday first
+            d.setDate(d.getDate() - 1); 
             
             for(let i=0; i<365; i++) {
                 const dateStr = getLocalDayStr(d.getTime());
                 const ms = history[dateStr] || 0;
-                if(ms >= goal) {
+                // Look up goal for that specific day, fallback to default
+                const target = historyGoals[dateStr] || defaultGoal || 3600000;
+                
+                if(ms >= target) {
                     streak++;
                 } else {
                     break; 
@@ -376,12 +391,38 @@
             return streak;
         }
 
+        // --- HEATMAP GENERATION ---
+        function generateDashboardHeatmap(history, historyGoals, defaultGoal) {
+            let html = '';
+            for (let i = 29; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const dateStr = getLocalDayStr(d.getTime());
+                
+                const ms = history[dateStr] || 0;
+                const target = historyGoals[dateStr] || defaultGoal || 3600000; // Historical or Default
+                
+                html += `<div class="day-box ${getColorClass(ms, target)}" title="${dateStr}"></div>`;
+            }
+            return html;
+        }
+
+        function getColorClass(ms, goal) {
+            if (ms < 3600000) return ''; 
+            const pct = (ms / goal) * 100;
+            if (pct >= 100) return 'hm-dgreen';
+            if (pct >= 80) return 'hm-lgreen';
+            if (pct >= 40) return 'hm-yellow';
+            return 'hm-red';
+        }
+
         // --- HISTORY MODAL ---
         window.openHistory = (uid) => {
             const userData = globalData[uid] || {};
             const history = userData.history || {};
-            const goal = userData.dailyGoal || 3600000;
-            const streak = calculateStreak(history, goal);
+            const historyGoals = userData.goals || {};
+            const defaultGoal = userData.dailyGoal || 3600000;
+            const streak = calculateStreak(history, historyGoals, defaultGoal);
             const modal = document.getElementById('history-modal');
             const currentYear = new Date().getFullYear();
             
@@ -409,15 +450,18 @@
                 `;
                 for(let s=0; s<startDay; s++) monthHTML += `<div class="day-box empty"></div>`;
                 for (let day = 1; day <= daysInMonth; day++) {
-                    // Generate local date string for this specific day
                     const cellDate = new Date(currentYear, month, day);
                     const dateStr = getLocalDayStr(cellDate.getTime());
                     
                     const ms = history[dateStr] || 0;
                     totalYearMs += ms;
-                    let classes = getColorClass(ms, goal);
+                    
+                    // Specific Goal Lookup
+                    const target = historyGoals[dateStr] || defaultGoal;
+                    
+                    let classes = getColorClass(ms, target);
                     if (cellDate > new Date()) classes = ''; 
-                    monthHTML += `<div class="day-box ${classes}" title="${dateStr}: ${formatHours(ms)}"></div>`;
+                    monthHTML += `<div class="day-box ${classes}" title="${dateStr}: ${formatHours(ms)} / Goal: ${formatHours(target)}"></div>`;
                 }
                 monthHTML += `</div></div>`;
                 container.insertAdjacentHTML('beforeend', monthHTML);
@@ -427,9 +471,28 @@
         };
         window.closeHistory = () => document.getElementById('history-modal').classList.remove('open');
 
-        // --- HELPERS ---
+        // --- GOAL SETTING (DATE SPECIFIC) ---
+        window.toggleGoalInput = (uid) => document.getElementById(`goal-input-${uid}`).classList.toggle('show');
         
-        // ** THE FIX **: Robust Local Date String Generator
+        window.saveGoal = (uid) => {
+            const hours = parseFloat(document.getElementById(`input-hours-${uid}`).value);
+            if (hours) { 
+                const ms = hours * 3600000;
+                const todayStr = getLocalDayStr();
+                
+                // Save to:
+                // 1. goals/YYYY-MM-DD (Locks it for today and history)
+                // 2. dailyGoal (Updates default for future days)
+                let updates = {};
+                updates[`goals/${todayStr}`] = ms;
+                updates[`dailyGoal`] = ms; 
+                
+                update(ref(db, `users/${uid}`), updates);
+                toggleGoalInput(uid); 
+            }
+        };
+
+        // --- UTILS ---
         function getLocalDayStr(ts = Date.now()) {
             const d = new Date(ts);
             const year = d.getFullYear();
@@ -437,33 +500,6 @@
             const day = String(d.getDate()).padStart(2, '0');
             return `${year}-${month}-${day}`;
         }
-
-        function getColorClass(ms, goal) {
-            if (ms < 3600000) return ''; 
-            const pct = (ms / goal) * 100;
-            if (pct >= 100) return 'hm-dgreen';
-            if (pct >= 80) return 'hm-lgreen';
-            if (pct >= 40) return 'hm-yellow';
-            return 'hm-red';
-        }
-
-        function generateDashboardHeatmap(history, goal) {
-            let html = '';
-            for (let i = 29; i >= 0; i--) {
-                const d = new Date();
-                d.setDate(d.getDate() - i);
-                const dateStr = getLocalDayStr(d.getTime());
-                const ms = history[dateStr] || 0;
-                html += `<div class="day-box ${getColorClass(ms, goal)}" title="${dateStr}"></div>`;
-            }
-            return html;
-        }
-
-        window.toggleGoalInput = (uid) => document.getElementById(`goal-input-${uid}`).classList.toggle('show');
-        window.saveGoal = (uid) => {
-            const hours = parseFloat(document.getElementById(`input-hours-${uid}`).value);
-            if (hours) { update(ref(db, `users/${uid}`), { dailyGoal: hours * 3600000 }); toggleGoalInput(uid); }
-        };
 
         function formatTime(ms) { 
             const s = Math.floor((ms/1000)%60); 
