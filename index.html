@@ -13,9 +13,9 @@
         h1 { margin-bottom: 20px; color: #f0f6fc; }
 
         /* --- 2. USER THEMES --- */
-        .theme-user1 { --accent: #ff5252; } /* Tejas: Red */
-        .theme-user2 { --accent: #2ea043; } /* Akash: Green */
-        .theme-user3 { --accent: #2f81f7; } /* Krishna: Blue */
+        .theme-user1 { --accent: #ff5252; --tint: rgba(255, 82, 82, 0.1); } /* Tejas: Red */
+        .theme-user2 { --accent: #2ea043; --tint: rgba(46, 160, 67, 0.1); } /* Akash: Green */
+        .theme-user3 { --accent: #2f81f7; --tint: rgba(47, 129, 247, 0.1); } /* Krishna: Blue */
 
         /* --- 3. UI ELEMENTS --- */
         select, button, input { padding: 10px 15px; border-radius: 6px; border: 1px solid var(--border); font-size: 0.9rem; outline: none; background: #21262d; color: white; }
@@ -28,39 +28,42 @@
         .screen.visible { display: block; }
         
         /* --- 4. DASHBOARD --- */
-        #dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; width: 100%; max-width: 1200px; display: none; }
+        #dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; width: 100%; max-width: 1200px; display: none; }
         #dashboard.visible { display: grid; }
         
         /* --- 5. CARDS --- */
-        .card { background: var(--card); padding: 20px; border-radius: 10px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 15px; }
-        .card.active { border-color: var(--accent); box-shadow: 0 0 10px rgba(255,255,255,0.05); }
+        .card { background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 15px; }
+        .card.active { border-color: var(--accent); box-shadow: 0 0 15px rgba(0,0,0,0.2); }
 
         .header { display: flex; justify-content: space-between; align-items: flex-start; }
         
-        /* Name & Streak */
         .identity { display: flex; flex-direction: column; }
-        .name { font-size: 1.3rem; font-weight: bold; color: var(--accent); cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 4px; }
-        .streak { font-size: 0.85rem; color: #ffa000; margin-top: 2px; font-weight: bold; display: flex; align-items: center; gap: 4px; }
+        .name { font-size: 1.4rem; font-weight: bold; color: var(--accent); cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 4px; }
+        .streak { font-size: 0.85rem; color: #ffa000; margin-top: 4px; font-weight: bold; display: flex; align-items: center; gap: 4px; }
         
-        /* Status Badge */
         .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; background: #21262d; border: 1px solid var(--border); white-space: nowrap; }
         .active .status-badge { background: var(--accent); color: white; border-color: var(--accent); }
 
-        /* Current Task Context */
-        .current-task { font-size: 0.9rem; color: #8b949e; text-align: center; font-style: italic; min-height: 1.2em; }
-        .active .current-task { color: #e6edf3; }
+        .current-task { font-size: 0.95rem; color: #8b949e; text-align: center; font-style: italic; min-height: 1.4em; }
+        .active .current-task { color: #e6edf3; text-shadow: 0 0 10px rgba(255,255,255,0.1); }
 
-        .timer-display { font-size: 2.8rem; font-family: monospace; font-weight: bold; text-align: center; margin: 5px 0; letter-spacing: -1px; }
+        /* --- DUAL TIMER LAYOUT --- */
+        .timer-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 5px 0; }
         
+        .timer-box { background: #0d1117; border-radius: 8px; padding: 10px; text-align: center; border: 1px solid var(--border); display: flex; flex-direction: column; justify-content: center; }
+        .active .timer-box.session { background: var(--tint); border-color: var(--accent); }
+        
+        .timer-val { font-family: monospace; font-size: 1.6rem; font-weight: bold; letter-spacing: -1px; color: white; }
+        .timer-lbl { font-size: 0.7rem; color: #8b949e; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+
         /* --- 6. HEATMAP --- */
-        .heatmap-container { display: flex; flex-direction: column; gap: 5px; }
+        .heatmap-container { display: flex; flex-direction: column; gap: 5px; margin-top: 5px; }
         .heatmap-label { font-size: 0.75rem; color: #8b949e; display: flex; justify-content: space-between; }
         .heatmap-grid { display: grid; grid-template-columns: repeat(15, 1fr); gap: 4px; } 
         
         .day-box { aspect-ratio: 1; border-radius: 2px; background: #2d333b; }
         .day-box.empty { background: transparent; border: none; }
 
-        /* Colors */
         .hm-red     { background-color: #ff5252; }
         .hm-yellow  { background-color: #ffd700; }
         .hm-lgreen  { background-color: #69f0ae; }
@@ -69,24 +72,18 @@
         /* --- 7. MODAL --- */
         #history-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; display: none; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
         #history-modal.open { display: flex; }
-        
         .modal-content { background: #161b22; width: 95%; max-width: 900px; max-height: 90vh; border-radius: 12px; border: 1px solid #30363d; display: flex; flex-direction: column; overflow: hidden; }
-        
         .modal-header { padding: 15px 20px; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; background: #0d1117; }
         .modal-title { font-weight: bold; font-size: 1.2rem; color: white; }
         .close-btn { background: none; border: none; color: #8b949e; font-size: 1.5rem; padding: 0; }
-        .close-btn:hover { color: white; }
-
         .modal-body { padding: 20px; overflow-y: auto; }
         .stats-row { display: flex; gap: 20px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #30363d; }
         .stat-item { flex: 1; background: #21262d; padding: 15px; border-radius: 8px; text-align: center; }
         .stat-val { font-size: 1.5rem; font-weight: bold; color: white; display: block; }
         .stat-lbl { font-size: 0.8rem; color: #8b949e; }
-
         .year-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
         .month-block { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 10px; }
         .month-title { font-size: 0.9rem; color: #8b949e; margin-bottom: 8px; text-align: center; font-weight: bold; }
-        
         .week-header { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 2px; }
         .week-day { font-size: 0.6rem; color: #6e7681; text-align: center; }
         .month-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
@@ -210,25 +207,28 @@
                 const history = userData.history || {};
                 const isMe = key === currentUser;
                 
-                // 1. Calculate Today's Total (Midnight Aware)
+                // CALC 1: TOTAL TODAY (Resets at Midnight)
                 const savedToday = history[todayStr] || 0;
                 let activeSessionToday = 0;
                 
+                // CALC 2: CURRENT SESSION (Continuous)
+                let currentSessionTotal = 0;
+
                 if (userData.isStudying && userData.startTime) {
+                    // Continuous session time
+                    currentSessionTotal = Date.now() - userData.startTime;
+
+                    // Daily contribution time (Midnight aware)
                     if (userData.startTime < midnightTimestamp.getTime()) {
                         activeSessionToday = Math.max(0, Date.now() - midnightTimestamp.getTime());
                     } else {
-                        activeSessionToday = Date.now() - userData.startTime;
+                        activeSessionToday = currentSessionTotal;
                     }
                 }
 
                 let displayTotal = savedToday + activeSessionToday;
                 let goal = userData.dailyGoal || 3600000;
-
-                // 2. Calculate Streak
                 const streak = calculateStreak(history, goal);
-
-                // 3. Status Text
                 let statusText = userData.isStudying ? (userData.statusMsg || 'Working...') : 'Resting';
 
                 const card = document.createElement('div');
@@ -247,7 +247,16 @@
 
                     <div class="current-task">${userData.isStudying ? statusText : ''}</div>
 
-                    <div class="timer-display" id="timer-${key}">${formatTime(displayTotal)}</div>
+                    <div class="timer-row">
+                        <div class="timer-box">
+                            <span class="timer-lbl">Total Today</span>
+                            <span class="timer-val" id="timer-total-${key}">${formatTime(displayTotal)}</span>
+                        </div>
+                        <div class="timer-box session">
+                            <span class="timer-lbl">Current Session</span>
+                            <span class="timer-val" id="timer-session-${key}">${formatTime(currentSessionTotal)}</span>
+                        </div>
+                    </div>
 
                     <div class="heatmap-container">
                         <div class="heatmap-label">
@@ -275,6 +284,7 @@
                 `;
                 container.appendChild(card);
 
+                // LIVE UPDATER
                 if (localTimers[key]) clearInterval(localTimers[key]);
                 if (userData.isStudying) {
                     localTimers[key] = setInterval(() => {
@@ -282,36 +292,35 @@
                         const currentMidnight = new Date();
                         currentMidnight.setHours(0,0,0,0);
                         
-                        let liveDiff = 0;
+                        // 1. Update Session (Continuous)
+                        const sessionDiff = now - userData.startTime;
+                        document.getElementById(`timer-session-${key}`).innerText = formatTime(sessionDiff);
+
+                        // 2. Update Today (Midnight Aware)
+                        let todayDiff = 0;
                         if (userData.startTime < currentMidnight.getTime()) {
-                            liveDiff = now - currentMidnight.getTime();
+                            todayDiff = now - currentMidnight.getTime();
                         } else {
-                            liveDiff = now - userData.startTime;
+                            todayDiff = sessionDiff;
                         }
-                        document.getElementById(`timer-${key}`).innerText = formatTime(savedToday + liveDiff);
+                        document.getElementById(`timer-total-${key}`).innerText = formatTime(savedToday + todayDiff);
+
                     }, 1000);
                 }
             });
         }
 
         // --- ACTION LOGIC ---
-        
         window.promptStart = (uid) => {
             const task = prompt("What are you working on?", "Studying");
-            if (task !== null) {
-                toggleStudy(uid, true, task);
-            }
+            if (task !== null) toggleStudy(uid, true, task);
         };
 
         window.toggleStudy = (uid, start, taskMsg = "") => {
             const userRef = ref(db, `users/${uid}`);
             
             if (start) {
-                update(userRef, { 
-                    isStudying: true, 
-                    startTime: Date.now(),
-                    statusMsg: taskMsg
-                });
+                update(userRef, { isStudying: true, startTime: Date.now(), statusMsg: taskMsg });
             } else {
                 get(userRef).then((snapshot) => {
                     const data = snapshot.val();
@@ -345,7 +354,6 @@
                             const todayTotal = currentHistory[endDayStr] || 0;
                             updates[`history/${endDayStr}`] = todayTotal + todayMs;
                         }
-
                         update(userRef, updates);
                     }
                 });
@@ -356,20 +364,15 @@
         function calculateStreak(history, goal) {
             let streak = 0;
             const d = new Date();
-            // Start checking from Yesterday (since today isn't over)
-            d.setDate(d.getDate() - 1); 
+            d.setDate(d.getDate() - 1); // Check yesterday first
             
-            // Loop backwards for 365 days max
             for(let i=0; i<365; i++) {
                 const dateStr = d.toISOString().split('T')[0];
                 const ms = history[dateStr] || 0;
-                
-                // Logic: Must match goal to keep streak alive
-                // (Optional: use > 1hr if you prefer strict minimum)
                 if(ms >= goal) {
                     streak++;
                 } else {
-                    break; // Streak broken
+                    break; 
                 }
                 d.setDate(d.getDate() - 1);
             }
@@ -393,7 +396,6 @@
             container.innerHTML = '';
             
             let totalYearMs = 0;
-
             for (let month = 0; month < 12; month++) {
                 const d = new Date(currentYear, month, 1);
                 const monthName = d.toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -407,73 +409,3 @@
                             <div class="week-day">S</div><div class="week-day">M</div><div class="week-day">T</div><div class="week-day">W</div><div class="week-day">T</div><div class="week-day">F</div><div class="week-day">S</div>
                         </div>
                         <div class="month-days">
-                `;
-
-                for(let s=0; s<startDay; s++) monthHTML += `<div class="day-box empty"></div>`;
-
-                for (let day = 1; day <= daysInMonth; day++) {
-                    const dateStr = `${currentYear}-${pad(month + 1)}-${pad(day)}`;
-                    const ms = history[dateStr] || 0;
-                    totalYearMs += ms;
-                    
-                    let classes = getColorClass(ms, goal);
-                    if (new Date(dateStr) > new Date()) classes = ''; 
-
-                    monthHTML += `<div class="day-box ${classes}" title="${dateStr}: ${formatHours(ms)}"></div>`;
-                }
-                monthHTML += `</div></div>`;
-                container.insertAdjacentHTML('beforeend', monthHTML);
-            }
-            
-            document.getElementById('stat-total-hrs').innerText = formatHours(totalYearMs);
-            modal.classList.add('open');
-        };
-
-        window.closeHistory = () => document.getElementById('history-modal').classList.remove('open');
-
-        // --- HELPERS ---
-        function getColorClass(ms, goal) {
-            if (ms < 3600000) return ''; // Must allow at least 1 hr to show color
-            const pct = (ms / goal) * 100;
-            if (pct >= 100) return 'hm-dgreen';
-            if (pct >= 80) return 'hm-lgreen';
-            if (pct >= 40) return 'hm-yellow';
-            return 'hm-red';
-        }
-
-        function generateDashboardHeatmap(history, goal) {
-            let html = '';
-            for (let i = 29; i >= 0; i--) {
-                const d = new Date();
-                d.setDate(d.getDate() - i);
-                const dateStr = d.toISOString().split('T')[0];
-                const ms = history[dateStr] || 0;
-                html += `<div class="day-box ${getColorClass(ms, goal)}" title="${dateStr}"></div>`;
-            }
-            return html;
-        }
-
-        window.toggleGoalInput = (uid) => document.getElementById(`goal-input-${uid}`).classList.toggle('show');
-        window.saveGoal = (uid) => {
-            const hours = parseFloat(document.getElementById(`input-hours-${uid}`).value);
-            if (hours) { update(ref(db, `users/${uid}`), { dailyGoal: hours * 3600000 }); toggleGoalInput(uid); }
-        };
-
-        function getTodayString() { 
-            const d = new Date();
-            const offset = d.getTimezoneOffset() * 60000;
-            const localISOTime = (new Date(d - offset)).toISOString().slice(0, -1);
-            return localISOTime.split('T')[0];
-        }
-
-        function formatTime(ms) { 
-            const s = Math.floor((ms/1000)%60); 
-            const m = Math.floor((ms/(1000*60))%60); 
-            const h = Math.floor((ms/(1000*60*60))); 
-            return `${pad(h)}:${pad(m)}:${pad(s)}`; 
-        }
-        function formatHours(ms) { return (ms / (1000*60*60)).toFixed(1) + 'h'; }
-        function pad(n) { return n < 10 ? '0'+n : n; }
-    </script>
-</body>
-</html>
