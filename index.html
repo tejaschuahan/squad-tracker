@@ -219,7 +219,6 @@
 
             get(userRef).then((snapshot) => {
                 const data = snapshot.val() || {};
-                
                 if (data.passwordHash) {
                     if (data.passwordHash === inputHash) {
                         enterDashboard(uid);
@@ -258,6 +257,7 @@
                 const userData = data[key] || {};
                 const history = userData.history || {};
                 const historyGoals = userData.goals || {}; 
+                const goalLocks = userData.goalLocks || {}; // NEW: Lock data
                 const isMe = key === currentUser;
                 
                 const savedToday = history[todayStr] || 0;
@@ -278,8 +278,8 @@
                 
                 let currentTaskName = userData.currentTask || "No active task";
                 
-                // NEW: Check if goal is already locked for today
-                const isGoalLocked = historyGoals.hasOwnProperty(todayStr);
+                // NEW: Locked Check
+                const isGoalLocked = goalLocks[todayStr] === true;
 
                 const card = document.createElement('div');
                 card.className = `card theme-${key} ${userData.isStudying ? 'active' : ''}`;
@@ -399,7 +399,7 @@
                         
                         let updates = { isStudying: false, startTime: null };
 
-                        // SNAPSHOT & LOCK: If goal missing, lock default now.
+                        // SNAPSHOT ONLY (Do NOT lock)
                         if (!currentGoals[endDayStr]) updates[`goals/${endDayStr}`] = defaultGoal;
                         if (startDayStr !== endDayStr && !currentGoals[startDayStr]) updates[`goals/${startDayStr}`] = defaultGoal;
 
@@ -533,17 +533,18 @@
                 const goals = data.goals || {};
                 const todayStr = getLocalDayStr();
                 
-                // BACKFILL CHECK: If past days have history but no saved goal, lock them to oldDefault
                 let updates = {};
+                // Backfill
                 Object.keys(history).forEach(dateKey => {
                     if (dateKey !== todayStr && !goals[dateKey]) {
                         updates[`goals/${dateKey}`] = oldDefault;
                     }
                 });
                 
-                // SET NEW GOAL
+                // NEW: Save Goal + Set Lock Flag
                 updates[`goals/${todayStr}`] = newGoalMs; 
                 updates[`dailyGoal`] = newGoalMs;         
+                updates[`goalLocks/${todayStr}`] = true; // Lock it now!
                 
                 update(userRef, updates);
                 toggleGoalInput(uid);
