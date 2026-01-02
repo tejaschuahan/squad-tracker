@@ -27,6 +27,10 @@
         .screen { text-align: center; margin-top: 50px; display: none; width: 100%; max-width: 400px; }
         .screen.visible { display: block; }
         
+        /* Login Specifics */
+        .login-box { background: var(--card); padding: 30px; border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 15px; }
+        .login-status { font-size: 0.8rem; color: #8b949e; margin-top: 5px; height: 1.2em; }
+
         /* --- 4. DASHBOARD --- */
         #dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; width: 100%; max-width: 1200px; display: none; }
         #dashboard.visible { display: grid; }
@@ -44,7 +48,6 @@
         .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; background: #21262d; border: 1px solid var(--border); white-space: nowrap; }
         .active .status-badge { background: var(--accent); color: white; border-color: var(--accent); }
 
-        /* Task Display */
         .current-task { font-size: 0.95rem; color: #8b949e; text-align: center; font-style: italic; min-height: 1.4em; border-bottom: 1px dashed #30363d; padding-bottom: 5px; }
         .active .current-task { color: #e6edf3; text-shadow: 0 0 10px rgba(255,255,255,0.1); border-color: var(--accent); }
 
@@ -85,7 +88,7 @@
         .week-header, .month-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
         .month-days .day-box { width: 100%; border-radius: 1px; aspect-ratio: 1; }
 
-        /* Session Log (New Feature) */
+        /* Session Log */
         .log-section-title { font-size: 1rem; color: #c9d1d9; margin-bottom: 10px; border-bottom: 1px solid #30363d; padding-bottom: 5px; }
         .session-list { display: flex; flex-direction: column; gap: 8px; }
         .session-item { background: #0d1117; border-left: 3px solid #30363d; padding: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
@@ -107,7 +110,7 @@
 </head>
 <body>
 
-    <h1>Squad Goals</h1>
+    <h1>🚀 Squad Goals</h1>
 
     <div id="history-modal">
         <div class="modal-content">
@@ -126,32 +129,29 @@
                         <span class="stat-lbl">Current Streak 🔥</span>
                     </div>
                 </div>
-
                 <div id="year-grid-container" class="year-grid"></div>
-
                 <div class="log-section-title">Session Log (Completed Tasks)</div>
                 <div id="session-log-container" class="session-list"></div>
             </div>
         </div>
     </div>
 
-    <div id="gate-screen" class="screen visible">
-        <p>🔒 Enter Squad Password</p>
-        <input type="password" id="squad-password" placeholder="Password...">
-        <br><br>
-        <button class="btn-main" onclick="checkGate()">Unlock</button>
-        <p id="error-msg" style="color: #ff5252; display: none; margin-top:10px;">Incorrect Password</p>
-    </div>
-
-    <div id="auth-screen" class="screen">
-        <h3>Who are you?</h3>
-        <select id="user-select">
-            <option value="user1">Tejas</option>
-            <option value="user2">Akash</option>
-            <option value="user3">Krishna</option>
-        </select>
-        <br><br>
-        <button class="btn-main" onclick="enterDashboard()">Enter Dashboard</button>
+    <div id="auth-screen" class="screen visible">
+        <div class="login-box">
+            <h3>Squad Login</h3>
+            <select id="user-select" onchange="checkUserStatus()">
+                <option value="" disabled selected>Select User...</option>
+                <option value="user1">Tejas</option>
+                <option value="user2">Akash</option>
+                <option value="user3">Krishna</option>
+            </select>
+            
+            <input type="password" id="user-password" placeholder="Enter Password">
+            
+            <button class="btn-main" id="login-btn" onclick="handleLogin()">Login</button>
+            
+            <div id="login-msg" class="login-status"></div>
+        </div>
     </div>
 
     <div id="dashboard"></div>
@@ -161,7 +161,8 @@
         import { getDatabase, ref, update, onValue, get, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         // --- CONFIGURATION ---
-        const SHARED_PASSWORD = "focus"; 
+        const DISCORD_WEBHOOK_URL = "YOUR_DISCORD_WEBHOOK_URL_HERE"; 
+        
         const firebaseConfig = {
             apiKey: "AIzaSyABF7QC5sAGW2SmphPbEwOcRMSml-6Ztks",
             authDomain: "squad-goals-aab2d.firebaseapp.com",
@@ -181,28 +182,78 @@
         let localTimers = {};
         let globalData = {}; 
 
-        // --- AUTH ---
-        window.checkGate = () => {
-            const input = document.getElementById('squad-password').value.trim().toLowerCase();
-            const correct = SHARED_PASSWORD.toLowerCase();
-            if (input === correct) {
-                document.getElementById('gate-screen').classList.remove('visible');
-                document.getElementById('auth-screen').classList.add('visible');
-            } else {
-                document.getElementById('error-msg').innerText = "Incorrect Password. Try 'focus'";
-                document.getElementById('error-msg').style.display = 'block';
-            }
+        // --- AUTH & SECURITY LOGIC ---
+        
+        // Simple Hash Function (SHA-256) - Keeps password hidden in DB
+        async function hashPassword(message) {
+            const msgBuffer = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // Exposed function for dropdown change
+        window.checkUserStatus = () => {
+            const uid = document.getElementById('user-select').value;
+            const btn = document.getElementById('login-btn');
+            const msg = document.getElementById('login-msg');
+            
+            get(ref(db, `users/${uid}/passwordHash`)).then((snapshot) => {
+                if (snapshot.exists()) {
+                    btn.innerText = "Login";
+                    msg.innerText = "";
+                } else {
+                    btn.innerText = "Register / Set Password";
+                    msg.innerText = "First time? Create a password.";
+                    msg.style.color = "#4caf50";
+                }
+            });
         };
 
-        window.enterDashboard = () => {
-            currentUser = document.getElementById('user-select').value;
+        window.handleLogin = async () => {
+            const uid = document.getElementById('user-select').value;
+            const pass = document.getElementById('user-password').value;
+            const msg = document.getElementById('login-msg');
+
+            if (!uid || !pass) {
+                msg.innerText = "Please select user and enter password.";
+                msg.style.color = "#ff5252";
+                return;
+            }
+
+            const inputHash = await hashPassword(pass);
+            const userRef = ref(db, `users/${uid}`);
+
+            get(userRef).then((snapshot) => {
+                const data = snapshot.val() || {};
+                
+                if (data.passwordHash) {
+                    // VERIFY EXISTING
+                    if (data.passwordHash === inputHash) {
+                        enterDashboard(uid);
+                    } else {
+                        msg.innerText = "Wrong Password!";
+                        msg.style.color = "#ff5252";
+                    }
+                } else {
+                    // REGISTER NEW (First Time)
+                    if(confirm(`Set password for ${users[uid]}? You cannot change this easily.`)) {
+                        update(userRef, { passwordHash: inputHash });
+                        enterDashboard(uid);
+                    }
+                }
+            });
+        };
+
+        function enterDashboard(uid) {
+            currentUser = uid;
             document.getElementById('auth-screen').classList.remove('visible');
             document.getElementById('dashboard').classList.add('visible');
             onValue(ref(db, 'users'), (snapshot) => {
                 globalData = snapshot.val() || {};
                 renderCards(globalData);
             });
-        };
+        }
 
         // --- RENDER DASHBOARD ---
         function renderCards(data) {
@@ -218,7 +269,6 @@
                 const historyGoals = userData.goals || {}; 
                 const isMe = key === currentUser;
                 
-                // 1. Time Calculations
                 const savedToday = history[todayStr] || 0;
                 let activeSessionToday = 0;
                 let currentSessionTotal = 0;
@@ -235,7 +285,6 @@
                 const todayGoal = historyGoals[todayStr] || userData.dailyGoal || 3600000;
                 const streak = calculateStreak(history, historyGoals, userData.dailyGoal);
                 
-                // Persistent Task Logic
                 let currentTaskName = userData.currentTask || "No active task";
 
                 const card = document.createElement('div');
@@ -313,7 +362,6 @@
 
         // --- ACTION LOGIC ---
         window.promptStart = (uid, lastTask) => {
-            // Pre-fill prompt with last task
             const task = prompt("What are you working on?", lastTask || "Studying");
             if (task !== null) toggleStudy(uid, true, task);
         };
@@ -322,7 +370,7 @@
             const userRef = ref(db, `users/${uid}`);
             
             if (start) {
-                // START: Update currentTask so it persists
+                sendDiscordAlert(`${users[uid]} started focusing on: ${taskMsg}`);
                 update(userRef, { 
                     isStudying: true, 
                     startTime: Date.now(), 
@@ -336,9 +384,7 @@
                         const start = data.startTime;
                         const duration = now - start;
                         
-                        // LOGIC: Save to Session History Log
                         const taskName = data.currentTask || "Unknown";
-                        // Push a new session entry
                         push(ref(db, `users/${uid}/sessions`), {
                             task: taskName,
                             startTime: start,
@@ -346,7 +392,6 @@
                             duration: duration
                         });
 
-                        // Standard Time Saving Logic
                         const startDayStr = getLocalDayStr(start);
                         const endDayStr = getLocalDayStr(now);
                         const currentHistory = data.history || {};
@@ -355,7 +400,6 @@
                         
                         let updates = { isStudying: false, startTime: null };
 
-                        // Smart Goal Backfill
                         if (!currentGoals[endDayStr]) updates[`goals/${endDayStr}`] = defaultGoal;
                         if (startDayStr !== endDayStr && !currentGoals[startDayStr]) updates[`goals/${startDayStr}`] = defaultGoal;
 
@@ -375,12 +419,21 @@
             }
         };
 
-        // --- HISTORY MODAL (UPDATED WITH LOG) ---
+        function sendDiscordAlert(msg) {
+            if (DISCORD_WEBHOOK_URL.includes("YOUR_DISCORD")) return;
+            fetch(DISCORD_WEBHOOK_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ content: msg })
+            }).catch(err => console.error("Discord Error:", err));
+        }
+
+        // --- HISTORY MODAL ---
         window.openHistory = (uid) => {
             const userData = globalData[uid] || {};
             const history = userData.history || {};
             const historyGoals = userData.goals || {};
-            const sessions = userData.sessions || {}; // Fetch sessions
+            const sessions = userData.sessions || {};
             const defaultGoal = userData.dailyGoal || 3600000;
             const streak = calculateStreak(history, historyGoals, defaultGoal);
             const modal = document.getElementById('history-modal');
@@ -390,7 +443,6 @@
             document.getElementById('stat-year-lbl').innerText = `${currentYear} Total`;
             document.getElementById('stat-streak').innerText = streak;
             
-            // 1. Render Year Grid
             const container = document.getElementById('year-grid-container');
             container.innerHTML = '';
             let totalYearMs = 0;
@@ -416,34 +468,19 @@
             }
             document.getElementById('stat-total-hrs').innerText = formatHours(totalYearMs);
 
-            // 2. Render Session Log (NEW)
             const logContainer = document.getElementById('session-log-container');
             logContainer.innerHTML = '';
-            
-            // Convert sessions object to array and sort by time (Newest first)
             const sessionArray = Object.values(sessions).sort((a, b) => b.endTime - a.endTime);
-
             if (sessionArray.length === 0) {
                 logContainer.innerHTML = '<div style="color:#555; text-align:center;">No completed sessions yet.</div>';
             } else {
-                // Limit to last 50 entries
                 sessionArray.slice(0, 50).forEach(session => {
                     const dateObj = new Date(session.endTime);
                     const dateDisplay = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                    
-                    const itemHTML = `
-                        <div class="session-item">
-                            <div class="session-info">
-                                <span class="session-task">${session.task}</span>
-                                <span class="session-date">${dateDisplay}</span>
-                            </div>
-                            <span class="session-dur">${formatTime(session.duration)}</span>
-                        </div>
-                    `;
+                    const itemHTML = `<div class="session-item"><div class="session-info"><span class="session-task">${session.task}</span><span class="session-date">${dateDisplay}</span></div><span class="session-dur">${formatTime(session.duration)}</span></div>`;
                     logContainer.insertAdjacentHTML('beforeend', itemHTML);
                 });
             }
-
             modal.classList.add('open');
         };
         window.closeHistory = () => document.getElementById('history-modal').classList.remove('open');
@@ -462,7 +499,6 @@
             }
             return streak;
         }
-
         function generateDashboardHeatmap(history, historyGoals, defaultGoal) {
             let html = '';
             for (let i = 29; i >= 0; i--) {
@@ -475,7 +511,6 @@
             }
             return html;
         }
-
         function getColorClass(ms, goal) {
             if (ms < 3600000) return ''; 
             const pct = (ms / goal) * 100;
@@ -484,9 +519,7 @@
             if (pct >= 40) return 'hm-yellow';
             return 'hm-red';
         }
-
         window.toggleGoalInput = (uid) => document.getElementById(`goal-input-${uid}`).classList.toggle('show');
-        
         window.saveGoal = (uid) => {
             const hours = parseFloat(document.getElementById(`input-hours-${uid}`).value);
             if (!hours) return;
@@ -510,7 +543,6 @@
                 toggleGoalInput(uid);
             });
         };
-
         function getLocalDayStr(ts = Date.now()) {
             const d = new Date(ts);
             const year = d.getFullYear();
