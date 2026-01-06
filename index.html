@@ -153,8 +153,10 @@
     <div id="dashboard"></div>
 
     <script type="module">
+        // IMPORT AUTH FUNCTIONS
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, update, onValue, get, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         // --- CONFIGURATION ---
         const DISCORD_WEBHOOK_URL = "YOUR_DISCORD_WEBHOOK_URL_HERE"; 
@@ -173,12 +175,28 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
+        const auth = getAuth(app); // Initialize Auth
         
         let currentUser = null;
         let localTimers = {};
         let globalData = {}; 
 
-        // --- AUTH & SECURITY LOGIC ---
+        // --- ANONYMOUS AUTH ---
+        // Automatically sign in silently when the page loads
+        signInAnonymously(auth).catch((error) => {
+            console.error("Auth Error:", error);
+        });
+
+        // Monitor Auth State (Useful for debugging)
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                console.log("Secure Connection Established (UID):", user.uid);
+            } else {
+                console.log("Disconnected");
+            }
+        });
+
+        // --- AUTH & SECURITY LOGIC (User Passwords) ---
         async function hashPassword(message) {
             const msgBuffer = new TextEncoder().encode(message);
             const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -219,6 +237,7 @@
 
             get(userRef).then((snapshot) => {
                 const data = snapshot.val() || {};
+                
                 if (data.passwordHash) {
                     if (data.passwordHash === inputHash) {
                         enterDashboard(uid);
@@ -257,7 +276,7 @@
                 const userData = data[key] || {};
                 const history = userData.history || {};
                 const historyGoals = userData.goals || {}; 
-                const goalLocks = userData.goalLocks || {}; // NEW: Lock data
+                const goalLocks = userData.goalLocks || {}; 
                 const isMe = key === currentUser;
                 
                 const savedToday = history[todayStr] || 0;
@@ -277,8 +296,6 @@
                 const streak = calculateStreak(history, historyGoals, userData.dailyGoal);
                 
                 let currentTaskName = userData.currentTask || "No active task";
-                
-                // NEW: Locked Check
                 const isGoalLocked = goalLocks[todayStr] === true;
 
                 const card = document.createElement('div');
