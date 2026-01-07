@@ -153,14 +153,11 @@
     <div id="dashboard"></div>
 
     <script type="module">
-        // IMPORT AUTH FUNCTIONS
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, update, onValue, get, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
         // --- CONFIGURATION ---
-        const DISCORD_WEBHOOK_URL = "YOUR_DISCORD_WEBHOOK_URL_HERE"; 
-        
         const firebaseConfig = {
             apiKey: "AIzaSyABF7QC5sAGW2SmphPbEwOcRMSml-6Ztks",
             authDomain: "squad-goals-aab2d.firebaseapp.com",
@@ -175,28 +172,20 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const auth = getAuth(app); // Initialize Auth
+        const auth = getAuth(app);
         
         let currentUser = null;
         let localTimers = {};
         let globalData = {}; 
 
         // --- ANONYMOUS AUTH ---
-        // Automatically sign in silently when the page loads
         signInAnonymously(auth).catch((error) => {
             console.error("Auth Error:", error);
+            document.getElementById('login-msg').innerText = "Auth Error: Enable Anonymous Auth in Firebase Console!";
+            document.getElementById('login-msg').style.color = "red";
         });
 
-        // Monitor Auth State (Useful for debugging)
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                console.log("Secure Connection Established (UID):", user.uid);
-            } else {
-                console.log("Disconnected");
-            }
-        });
-
-        // --- AUTH & SECURITY LOGIC (User Passwords) ---
+        // --- AUTH & SECURITY LOGIC ---
         async function hashPassword(message) {
             const msgBuffer = new TextEncoder().encode(message);
             const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -237,7 +226,6 @@
 
             get(userRef).then((snapshot) => {
                 const data = snapshot.val() || {};
-                
                 if (data.passwordHash) {
                     if (data.passwordHash === inputHash) {
                         enterDashboard(uid);
@@ -247,7 +235,9 @@
                     }
                 } else {
                     if(confirm(`Set password for ${users[uid]}? You cannot change this easily.`)) {
-                        update(userRef, { passwordHash: inputHash });
+                        update(userRef, { passwordHash: inputHash }).catch(err => {
+                            alert("Database Error: " + err.message);
+                        });
                         enterDashboard(uid);
                     }
                 }
@@ -283,7 +273,8 @@
                 let activeSessionToday = 0;
                 let currentSessionTotal = 0;
 
-                if (userData.isStudying && userData.startTime) {
+                // --- ROBUST NAN PROTECTION ---
+                if (userData.isStudying && userData.startTime && !isNaN(userData.startTime)) {
                     currentSessionTotal = Date.now() - userData.startTime;
                     if (userData.startTime < midnightTimestamp.getTime()) {
                         activeSessionToday = Math.max(0, Date.now() - midnightTimestamp.getTime());
@@ -362,10 +353,13 @@
                         const now = Date.now();
                         const currentMidnight = new Date();
                         currentMidnight.setHours(0,0,0,0);
-                        const sessionDiff = now - userData.startTime;
+                        // Safe Calculation inside interval
+                        const validStart = (userData.startTime && !isNaN(userData.startTime)) ? userData.startTime : now;
+                        
+                        const sessionDiff = now - validStart;
                         document.getElementById(`timer-session-${key}`).innerText = formatTime(sessionDiff);
                         let todayDiff = 0;
-                        if (userData.startTime < currentMidnight.getTime()) {
+                        if (validStart < currentMidnight.getTime()) {
                             todayDiff = now - currentMidnight.getTime();
                         } else {
                             todayDiff = sessionDiff;
@@ -386,18 +380,24 @@
             const userRef = ref(db, `users/${uid}`);
             
             if (start) {
-                sendDiscordAlert(`${users[uid]} started focusing on: ${taskMsg}`);
                 update(userRef, { 
                     isStudying: true, 
                     startTime: Date.now(), 
                     currentTask: taskMsg 
-                });
+                }).catch(err => alert("Start Error: " + err.message));
             } else {
                 get(userRef).then((snapshot) => {
                     const data = snapshot.val();
                     if (data && data.isStudying) {
                         const now = Date.now();
                         const start = data.startTime;
+                        // NaN Protection
+                        if(!start || isNaN(start)) {
+                            // If corrupt data, force reset without saving bad math
+                            update(userRef, { isStudying: false, startTime: null });
+                            return;
+                        }
+
                         const duration = now - start;
                         
                         const taskName = data.currentTask || "Unknown";
@@ -430,20 +430,11 @@
                             updates[`history/${startDayStr}`] = (currentHistory[startDayStr] || 0) + yesterdayMs;
                             updates[`history/${endDayStr}`] = (currentHistory[endDayStr] || 0) + todayMs;
                         }
-                        update(userRef, updates);
+                        update(userRef, updates).catch(err => alert("Save Error: " + err.message));
                     }
                 });
             }
         };
-
-        function sendDiscordAlert(msg) {
-            if (DISCORD_WEBHOOK_URL.includes("YOUR_DISCORD")) return;
-            fetch(DISCORD_WEBHOOK_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ content: msg })
-            }).catch(err => console.error("Discord Error:", err));
-        }
 
         // --- HISTORY MODAL ---
         window.openHistory = (uid) => {
@@ -563,7 +554,7 @@
                 updates[`dailyGoal`] = newGoalMs;         
                 updates[`goalLocks/${todayStr}`] = true; // Lock it now!
                 
-                update(userRef, updates);
+                update(userRef, updates).catch(err => alert("Goal Error: " + err.message));
                 toggleGoalInput(uid);
             });
         };
@@ -576,6 +567,7 @@
             return `${year}-${month}-${day}`;
         }
         function formatTime(ms) { 
+            if(isNaN(ms)) return "00:00:00"; // Protection against NaN
             const s = Math.floor((ms/1000)%60); 
             const m = Math.floor((ms/(1000*60))%60); 
             const h = Math.floor((ms/(1000*60*60))); 
